@@ -47,7 +47,7 @@ class DatabaseManager:
             SELECT id, nombre_estudiante, num_factura, gestion, fecha_registro 
             FROM certificados 
             WHERE carrera = ? AND estado = 0
-            ORDER BY fecha_registro DESC
+            ORDER BY nombre_estudiante ASC
         ''', (carrera,))
         rows = cursor.fetchall()
         conn.close()
@@ -62,6 +62,13 @@ class DatabaseManager:
             SET estado = 1, fecha_entrega = ? 
             WHERE id = ?
         ''', (fecha_entrega, cert_id))
+        conn.commit()
+        conn.close()
+
+    def delete_certificate(self, cert_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM certificados WHERE id = ?', (cert_id,))
         conn.commit()
         conn.close()
 
@@ -89,6 +96,8 @@ class DatabaseManager:
         if carrera:
             query += " AND carrera = ?"
             params.append(carrera)
+
+        query += " ORDER BY nombre_estudiante ASC"
             
         cursor.execute(query, params)
         rows = cursor.fetchall()

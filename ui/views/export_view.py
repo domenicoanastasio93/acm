@@ -81,7 +81,7 @@ class ExportView(ctk.CTkFrame):
                 # row: (nombre, carrera, factura, gestion, fecha)
                 ws.append(row)
             
-            filename = f"Report_Certificati_{year}_{month}.xlsx"
+            filename = f"Report_Certificati_{career}_{year}-{month}.xlsx"
             # Get desktop path or save in current dir
             save_path = os.path.join(os.getcwd(), filename)
             

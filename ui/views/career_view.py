@@ -1,8 +1,9 @@
 import customtkinter as ctk
-from tkinter import ttk
 import tkinter as tk
+from tkinter import ttk, messagebox
 from database.db_manager import DatabaseManager
-from datetime import datetime
+from utils.excel_util import get_unique_gestioni
+from ui.components.multi_select import MultiSelectDropdown
 
 class CareerView(ctk.CTkFrame):
     def __init__(self, master, career_name, theme_color, back_callback):
@@ -11,6 +12,7 @@ class CareerView(ctk.CTkFrame):
         self.theme_color = theme_color
         self.back_callback = back_callback
         self.db = DatabaseManager()
+        self.available_gestioni = get_unique_gestioni()
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1) # Content area
@@ -42,7 +44,7 @@ class CareerView(ctk.CTkFrame):
         self.entry_factura = ctk.CTkEntry(self.form_frame, placeholder_text="Numero Fattura")
         self.entry_factura.pack(pady=10, padx=20, fill="x")
 
-        self.entry_gestion = ctk.CTkEntry(self.form_frame, placeholder_text="Gestione (es. II-25)")
+        self.entry_gestion = MultiSelectDropdown(self.form_frame, values=self.available_gestioni)
         self.entry_gestion.pack(pady=10, padx=20, fill="x")
 
         self.btn_save = ctk.CTkButton(self.form_frame, text="Registra", fg_color=self.theme_color, command=self.add_record)
@@ -94,11 +96,24 @@ class CareerView(ctk.CTkFrame):
         self.tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.grid(row=1, column=1, sticky="ns", pady=(0, 10))
 
-        # Deliver Button
-        self.btn_deliver = ctk.CTkButton(self.list_frame, text="Consegnare Certificato", fg_color="gray", state="disabled", command=self.deliver_certificate)
-        self.btn_deliver.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+        # Action Buttons
+        self.actions_frame = ctk.CTkFrame(self.list_frame, fg_color="transparent")
+        self.actions_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+        self.actions_frame.grid_columnconfigure((0, 1), weight=1)
+
+        self.btn_deliver = ctk.CTkButton(self.actions_frame, text="Consegnare Certificato", fg_color="gray", state="disabled", command=self.deliver_certificate)
+        self.btn_deliver.grid(row=0, column=0, padx=(0, 5), sticky="ew")
+
+        self.btn_delete = ctk.CTkButton(self.actions_frame, text="Elimina Studente", fg_color="gray", state="disabled", hover_color="#c0392b", command=self.delete_record)
+        self.btn_delete.grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
+        
+        # Context menu (Right click)
+        self.menu = tk.Menu(self, tearoff=0)
+        self.menu.add_command(label="Consegna Certificato", command=self.deliver_certificate)
+        self.menu.add_command(label="Elimina Studente", command=self.delete_record)
+        self.tree.bind("<Button-2>" if self.tk.call('tk', 'windowingsystem') == 'aqua' else "<Button-3>", self.show_menu)
 
         self.refresh_data()
 
@@ -107,12 +122,14 @@ class CareerView(ctk.CTkFrame):
         factura = self.entry_factura.get()
         gestion = self.entry_gestion.get()
 
-        if name and factura and gestion:
+        if name: # Solo il nome è obbligatorio
             self.db.add_certificate(name, self.career_name, factura, gestion)
             self.entry_name.delete(0, "end")
             self.entry_factura.delete(0, "end")
             self.entry_gestion.delete(0, "end")
             self.refresh_data()
+        else:
+            messagebox.showwarning("Attenzione", "Il nome dello studente è obbligatorio.")
 
     def refresh_data(self):
         # Clear tree
@@ -121,24 +138,12 @@ class CareerView(ctk.CTkFrame):
         
         records = self.db.get_pending_certificates(self.career_name)
         for r in records:
-            # r: (id, nombre, factura, gestion, fecha)
             self.tree.insert("", "end", values=r)
         
         self.filter_list()
 
     def filter_list(self, *args):
         query = self.search_var.get().lower()
-        # This is a basic client-side filter for now since we just fetched all pending
-        # If dataset grows, move filter to DB query
-        
-        # We need to reload all to filter correctly if we are typing backspace
-        # A bit inefficient to fetch from DB every keystroke, so let's just 
-        # rebuild from DB if query is empty, or filter current items?
-        # Simpler: just reload from DB if query is empty, else filter what we have? 
-        # No, "get_children" only gives us what's there. 
-        # Easiest: Reload all, then detach those that don't match.
-        
-        # Let's just re-fetch all for simplicity in this prototype phase
         for item in self.tree.get_children():
             self.tree.delete(item)
             
@@ -151,21 +156,39 @@ class CareerView(ctk.CTkFrame):
         selected = self.tree.selection()
         if selected:
             self.btn_deliver.configure(state="normal", fg_color=self.theme_color)
+            self.btn_delete.configure(state="normal", fg_color="#e74c3c")
         else:
             self.btn_deliver.configure(state="disabled", fg_color="gray")
+            self.btn_delete.configure(state="disabled", fg_color="gray")
+
+    def show_menu(self, event):
+        item = self.tree.identify_row(event.y)
+        if item:
+            self.tree.selection_set(item)
+            self.menu.post(event.x_root, event.y_root)
 
     def deliver_certificate(self):
         selected = self.tree.selection()
-        if not selected:
-            return
+        if not selected: return
         
-        item = self.tree.item(selected[0])
-        # item['values'] = [ID, Name, ...]
-        cert_id = item['values'][0]
-        name = item['values'][1]
+        item_values = self.tree.item(selected[0])['values']
+        cert_id, name = item_values[0], item_values[1]
 
-        # Confirm Dialog
-        if tk.messagebox.askyesno("Conferma", f"Confermare consegna per {name}?"):
+        if messagebox.askyesno("Conferma Consegna", f"Confermare consegna per {name}?"):
              self.db.mark_as_delivered(cert_id)
              self.refresh_data()
              self.btn_deliver.configure(state="disabled", fg_color="gray")
+             self.btn_delete.configure(state="disabled", fg_color="gray")
+
+    def delete_record(self):
+        selected = self.tree.selection()
+        if not selected: return
+        
+        item_values = self.tree.item(selected[0])['values']
+        cert_id, name = item_values[0], item_values[1]
+
+        if messagebox.askyesno("Conferma Eliminazione", f"Sei sicuro di voler eliminare {name}?\nQuesta operazione è irreversibile."):
+             self.db.delete_certificate(cert_id)
+             self.refresh_data()
+             self.btn_deliver.configure(state="disabled", fg_color="gray")
+             self.btn_delete.configure(state="disabled", fg_color="gray")
