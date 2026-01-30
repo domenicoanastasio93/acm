@@ -1,0 +1,49 @@
+# Documentazione
+HELP.md
+
+# Build output
+/target/
+/build/
+
+# IntelliJ
+/.idea/
+/*.iml
+/*.iws
+/*.ipr
+
+# VS Code
+/.vscode/
+
+# Maven
+/.mvn/
+/mvnw*
+!/.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Eclipse / STS
+/.classpath
+/.project
+/.settings/
+/.apt_generated
+/.factorypath
+/.springBeans
+/.sts4-cache
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# Log / Data / Media folders (solo nella root)
+#/logs/  → se vuoi escludere tutto il contenuto interno
+/logs
+/data
+/media
+
+.gemini*
+.venv*
