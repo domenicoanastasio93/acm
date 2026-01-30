@@ -5,19 +5,20 @@ class MultiSelectDropdown(ctk.CTkFrame):
         super().__init__(master, fg_color="transparent", **kwargs)
         self.values = values
         self.placeholder = placeholder
-        self.selections = {val: 0 for val in self.values} # val: quantity
+        self.selections = dict.fromkeys(self.values, 0) # val: quantity
         
-        # Primary button to show/hide dropdown
-        self.button = ctk.CTkButton(self, text=self.placeholder, command=self.toggle_dropdown, 
-                                    fg_color="#3B3B3B", hover_color="#4B4B4B",
-                                    height=35, font=("Roboto", 13))
+        # Header showing summary (non-clickable, non-hoverable)
+        self.button = ctk.CTkButton(self, text=self.placeholder, 
+                                    fg_color="#3B3B3B", hover=False,
+                                    height=35, font=("Roboto", 13, "bold"))
         self.button.pack(fill="x")
         
         # Scrollable frame for the list of items with counters
-        # We start it hidden (pack_forget)
+        # Always visible
         self.dropdown_frame = ctk.CTkScrollableFrame(self, height=250, fg_color="#2B2B2B",
                                                      border_width=1, border_color="#444")
-        self.is_open = False
+        self.dropdown_frame.pack(fill="x", pady=(5, 0))
+        self.is_open = True
         
         self.rows = []
         for val in self.values:
@@ -57,12 +58,8 @@ class MultiSelectDropdown(ctk.CTkFrame):
         self.update_button_text()
             
     def toggle_dropdown(self):
-        if self.is_open:
-            self.dropdown_frame.pack_forget()
-            self.is_open = False
-        else:
-            self.dropdown_frame.pack(fill="x", pady=(5, 0))
-            self.is_open = True
+        # Always open, so toggle is disabled
+        pass
             
     def update_button_text(self):
         selected_summaries = []
@@ -100,5 +97,3 @@ class MultiSelectDropdown(ctk.CTkFrame):
         for item in self.rows:
             item["qty_lbl"].configure(text="0")
         self.update_button_text()
-        if self.is_open:
-            self.toggle_dropdown()

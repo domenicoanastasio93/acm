@@ -4,6 +4,9 @@ from tkinter import ttk, messagebox
 from database.db_manager import DatabaseManager
 from utils.excel_util import get_unique_gestioni
 from ui.components.multi_select import MultiSelectDropdown
+from ui.components.delivery_dialog import DeliveryDialog
+from utils.date_util import DateUtil
+
 
 class CareerView(ctk.CTkFrame):
     def __init__(self, master, career_name, theme_color, back_callback):
@@ -38,6 +41,9 @@ class CareerView(ctk.CTkFrame):
         
         ctk.CTkLabel(self.form_frame, text="Nuova Registrazione", font=("Roboto", 16, "bold")).pack(pady=10)
         
+        self.entry_numero = ctk.CTkEntry(self.form_frame, placeholder_text="N.")
+        self.entry_numero.pack(pady=10, padx=20, fill="x")
+
         self.entry_name = ctk.CTkEntry(self.form_frame, placeholder_text="Nome Studente")
         self.entry_name.pack(pady=10, padx=20, fill="x")
 
@@ -56,11 +62,18 @@ class CareerView(ctk.CTkFrame):
         self.list_frame.grid_rowconfigure(1, weight=1)
         self.list_frame.grid_columnconfigure(0, weight=1)
 
-        # Search Bar
+        # Search Bar & Count
+        self.search_header = ctk.CTkFrame(self.list_frame, fg_color="transparent")
+        self.search_header.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        self.search_header.grid_columnconfigure(0, weight=1)
+
         self.search_var = ctk.StringVar()
         self.search_var.trace_add("write", self.filter_list)
-        self.search_entry = ctk.CTkEntry(self.list_frame, placeholder_text="Cerca per nome...", textvariable=self.search_var)
-        self.search_entry.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        self.search_entry = ctk.CTkEntry(self.search_header, placeholder_text="Cerca per nome...", textvariable=self.search_var)
+        self.search_entry.grid(row=0, column=0, sticky="ew")
+
+        self.count_label = ctk.CTkLabel(self.search_header, text="Studenti: 0", font=("Roboto", 12, "bold"))
+        self.count_label.grid(row=0, column=1, padx=(10, 0))
 
         # Treeview Style
         style = ttk.Style()
@@ -74,20 +87,25 @@ class CareerView(ctk.CTkFrame):
         style.configure("Treeview.Heading", font=("Roboto", 12, "bold"))
         
         # Treeview
-        columns = ("ID", "Nome", "Fattura", "Gestione", "Data")
+        # We keep ID as the first column but label it "N." (or show the manual number there)
+        # Actually, let's keep ID in a hidden column or at the end, and show "N." (manual) as the first.
+        columns = ("db_id", "N.", "Nome", "Fattura", "Gestione", "Data")
         self.tree = ttk.Treeview(self.list_frame, columns=columns, show="headings", selectmode="browse")
         
-        self.tree.heading("ID", text="ID")
+        self.tree.heading("db_id", text="ID")
+        self.tree.heading("N.", text="N.")
         self.tree.heading("Nome", text="Nome")
         self.tree.heading("Fattura", text="Fattura")
         self.tree.heading("Gestione", text="Gestione")
         self.tree.heading("Data", text="Data Inserimento")
         
-        self.tree.column("ID", width=30)
+        self.tree.column("db_id", width=0, stretch=False) # Hide db_id
+        self.tree.column("N.", width=50)
         self.tree.column("Nome", width=150)
         self.tree.column("Fattura", width=80)
         self.tree.column("Gestione", width=80)
-        self.tree.column("Data", width=100)
+        self.tree.column("Data", width=150)
+
 
         self.tree.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
@@ -118,12 +136,14 @@ class CareerView(ctk.CTkFrame):
         self.refresh_data()
 
     def add_record(self):
+        numero = self.entry_numero.get()
         name = self.entry_name.get()
         factura = self.entry_factura.get()
         gestion = self.entry_gestion.get()
 
         if name: # Solo il nome è obbligatorio
-            self.db.add_certificate(name, self.career_name, factura, gestion)
+            self.db.add_certificate(numero, name, self.career_name, factura, gestion)
+            self.entry_numero.delete(0, "end")
             self.entry_name.delete(0, "end")
             self.entry_factura.delete(0, "end")
             self.entry_gestion.delete(0, "end")
@@ -138,7 +158,11 @@ class CareerView(ctk.CTkFrame):
         
         records = self.db.get_pending_certificates(self.career_name)
         for r in records:
-            self.tree.insert("", "end", values=r)
+            # r: (id, numero, nombre, factura, gestion, fecha)
+            formatted_record = list(r)
+            formatted_record[5] = DateUtil.format_datetime(r[5])
+            self.tree.insert("", "end", values=formatted_record)
+
         
         self.filter_list()
 
@@ -148,9 +172,17 @@ class CareerView(ctk.CTkFrame):
             self.tree.delete(item)
             
         records = self.db.get_pending_certificates(self.career_name)
+        count = 0
         for r in records:
-            if query in r[1].lower(): # r[1] is name
-                self.tree.insert("", "end", values=r)
+            # r: (id, numero, nombre, factura, gestion, fecha)
+            if query in r[2].lower(): # r[2] is name
+                count += 1
+                formatted_record = list(r)
+                formatted_record[5] = DateUtil.format_datetime(r[5])
+                self.tree.insert("", "end", values=formatted_record)
+        
+        self.count_label.configure(text=f"Studenti: {count}")
+
 
     def on_select(self, event):
         selected = self.tree.selection()
@@ -172,20 +204,22 @@ class CareerView(ctk.CTkFrame):
         if not selected: return
         
         item_values = self.tree.item(selected[0])['values']
-        cert_id, name = item_values[0], item_values[1]
+        cert_id, name = item_values[0], item_values[2] # 0 is db_id, 2 is name
 
-        if messagebox.askyesno("Conferma Consegna", f"Confermare consegna per {name}?"):
-             self.db.mark_as_delivered(cert_id)
-             self.refresh_data()
-             self.btn_deliver.configure(state="disabled", fg_color="gray")
-             self.btn_delete.configure(state="disabled", fg_color="gray")
+        def on_confirm(custom_date):
+            self.db.mark_as_delivered(cert_id, custom_date)
+            self.refresh_data()
+            self.btn_deliver.configure(state="disabled", fg_color="gray")
+            self.btn_delete.configure(state="disabled", fg_color="gray")
+
+        DeliveryDialog(self.master, name, self.theme_color, on_confirm)
 
     def delete_record(self):
         selected = self.tree.selection()
         if not selected: return
         
         item_values = self.tree.item(selected[0])['values']
-        cert_id, name = item_values[0], item_values[1]
+        cert_id, name = item_values[0], item_values[2] # 0 is db_id, 2 is name
 
         if messagebox.askyesno("Conferma Eliminazione", f"Sei sicuro di voler eliminare {name}?\nQuesta operazione è irreversibile."):
              self.db.delete_certificate(cert_id)

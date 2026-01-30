@@ -1,8 +1,8 @@
 CAREER_THEMES = {
-    "Medicina": "#FBC02D",   # Yellow
-    "Enfermería": "#E91E63", # Pink
+    "Medicina": "#DBA00B",   # Yellow
+    "Enfermería": "#EB5285", # Pink
     "Instrumentación Quirúrgica": "#4CAF50", # Green
-    "Fonoaudiología": "#D32F2F" # Red
+    "Fonoaudiología": "#B32020" # Red
 }
 
 CAREER_NAMES = list(CAREER_THEMES.keys())
