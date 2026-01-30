@@ -24,10 +24,10 @@ class CareerView(ctk.CTkFrame):
         self.header = ctk.CTkFrame(self, fg_color=self.theme_color, height=60, corner_radius=0)
         self.header.grid(row=0, column=0, sticky="ew")
         
-        self.back_btn = ctk.CTkButton(self.header, text="← Menu", width=80, fg_color="white", text_color="black", hover_color="#eee", command=self.back_callback)
+        self.back_btn = ctk.CTkButton(self.header, text="← Menú", width=80, fg_color="white", text_color="black", hover_color="#eee", command=self.back_callback)
         self.back_btn.pack(side="left", padx=20, pady=10)
 
-        self.title_label = ctk.CTkLabel(self.header, text=f"Gestione {self.career_name}", font=("Roboto", 24, "bold"), text_color="white")
+        self.title_label = ctk.CTkLabel(self.header, text=f"Gestión {self.career_name}", font=("Roboto", 24, "bold"), text_color="white")
         self.title_label.pack(side="left", padx=20)
 
         # --- Main Content Area (Split: Left Form, Right List) ---
@@ -39,21 +39,21 @@ class CareerView(ctk.CTkFrame):
         self.form_frame = ctk.CTkFrame(self.content, width=300)
         self.form_frame.grid(row=0, column=0, sticky="ns", padx=(0, 20))
         
-        ctk.CTkLabel(self.form_frame, text="Nuova Registrazione", font=("Roboto", 16, "bold")).pack(pady=10)
+        ctk.CTkLabel(self.form_frame, text="Nuevo Registro", font=("Roboto", 16, "bold")).pack(pady=10)
         
         self.entry_numero = ctk.CTkEntry(self.form_frame, placeholder_text="N.")
         self.entry_numero.pack(pady=10, padx=20, fill="x")
 
-        self.entry_name = ctk.CTkEntry(self.form_frame, placeholder_text="Nome Studente")
+        self.entry_name = ctk.CTkEntry(self.form_frame, placeholder_text="Nombre Estudiante")
         self.entry_name.pack(pady=10, padx=20, fill="x")
 
-        self.entry_factura = ctk.CTkEntry(self.form_frame, placeholder_text="Numero Fattura")
+        self.entry_factura = ctk.CTkEntry(self.form_frame, placeholder_text="Número Factura")
         self.entry_factura.pack(pady=10, padx=20, fill="x")
 
         self.entry_gestion = MultiSelectDropdown(self.form_frame, values=self.available_gestioni)
         self.entry_gestion.pack(pady=10, padx=20, fill="x")
 
-        self.btn_save = ctk.CTkButton(self.form_frame, text="Registra", fg_color=self.theme_color, command=self.add_record)
+        self.btn_save = ctk.CTkButton(self.form_frame, text="Registrar", fg_color=self.theme_color, command=self.add_record)
         self.btn_save.pack(pady=20, padx=20, fill="x")
 
         # --- Right: Pending List ---
@@ -69,10 +69,10 @@ class CareerView(ctk.CTkFrame):
 
         self.search_var = ctk.StringVar()
         self.search_var.trace_add("write", self.filter_list)
-        self.search_entry = ctk.CTkEntry(self.search_header, placeholder_text="Cerca per nome...", textvariable=self.search_var)
+        self.search_entry = ctk.CTkEntry(self.search_header, placeholder_text="Buscar por nombre...", textvariable=self.search_var)
         self.search_entry.grid(row=0, column=0, sticky="ew")
 
-        self.count_label = ctk.CTkLabel(self.search_header, text="Studenti: 0", font=("Roboto", 12, "bold"))
+        self.count_label = ctk.CTkLabel(self.search_header, text="Total: 0", font=("Roboto", 12, "bold"))
         self.count_label.grid(row=0, column=1, padx=(10, 0))
 
         # Treeview Style
@@ -89,22 +89,22 @@ class CareerView(ctk.CTkFrame):
         # Treeview
         # We keep ID as the first column but label it "N." (or show the manual number there)
         # Actually, let's keep ID in a hidden column or at the end, and show "N." (manual) as the first.
-        columns = ("db_id", "N.", "Nome", "Fattura", "Gestione", "Data")
+        columns = ("db_id", "N.", "Nombre", "Factura", "Gestión", "Fecha")
         self.tree = ttk.Treeview(self.list_frame, columns=columns, show="headings", selectmode="browse")
         
         self.tree.heading("db_id", text="ID")
         self.tree.heading("N.", text="N.")
-        self.tree.heading("Nome", text="Nome")
-        self.tree.heading("Fattura", text="Fattura")
-        self.tree.heading("Gestione", text="Gestione")
-        self.tree.heading("Data", text="Data Inserimento")
+        self.tree.heading("Nombre", text="Nombre")
+        self.tree.heading("Factura", text="Factura")
+        self.tree.heading("Gestión", text="Gestión")
+        self.tree.heading("Fecha", text="Fecha de Inserción")
         
         self.tree.column("db_id", width=0, stretch=False) # Hide db_id
         self.tree.column("N.", width=50)
-        self.tree.column("Nome", width=150)
-        self.tree.column("Fattura", width=80)
-        self.tree.column("Gestione", width=80)
-        self.tree.column("Data", width=150)
+        self.tree.column("Nombre", width=150)
+        self.tree.column("Factura", width=80)
+        self.tree.column("Gestión", width=80)
+        self.tree.column("Fecha", width=150)
 
 
         self.tree.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
@@ -119,18 +119,18 @@ class CareerView(ctk.CTkFrame):
         self.actions_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
         self.actions_frame.grid_columnconfigure((0, 1), weight=1)
 
-        self.btn_deliver = ctk.CTkButton(self.actions_frame, text="Consegnare Certificato", fg_color="gray", state="disabled", command=self.deliver_certificate)
+        self.btn_deliver = ctk.CTkButton(self.actions_frame, text="Entregar Certificado", fg_color="gray", state="disabled", command=self.deliver_certificate)
         self.btn_deliver.grid(row=0, column=0, padx=(0, 5), sticky="ew")
 
-        self.btn_delete = ctk.CTkButton(self.actions_frame, text="Elimina Studente", fg_color="gray", state="disabled", hover_color="#c0392b", command=self.delete_record)
+        self.btn_delete = ctk.CTkButton(self.actions_frame, text="Eliminar Estudiante", fg_color="gray", state="disabled", hover_color="#c0392b", command=self.delete_record)
         self.btn_delete.grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
         
         # Context menu (Right click)
         self.menu = tk.Menu(self, tearoff=0)
-        self.menu.add_command(label="Consegna Certificato", command=self.deliver_certificate)
-        self.menu.add_command(label="Elimina Studente", command=self.delete_record)
+        self.menu.add_command(label="Entregar Certificado", command=self.deliver_certificate)
+        self.menu.add_command(label="Eliminar Estudiante", command=self.delete_record)
         self.tree.bind("<Button-2>" if self.tk.call('tk', 'windowingsystem') == 'aqua' else "<Button-3>", self.show_menu)
 
         self.refresh_data()
@@ -149,7 +149,7 @@ class CareerView(ctk.CTkFrame):
             self.entry_gestion.delete(0, "end")
             self.refresh_data()
         else:
-            messagebox.showwarning("Attenzione", "Il nome dello studente è obbligatorio.")
+            messagebox.showwarning("Atención", "El nombre del estudiante es obligatorio.")
 
     def refresh_data(self):
         # Clear tree
@@ -181,7 +181,7 @@ class CareerView(ctk.CTkFrame):
                 formatted_record[5] = DateUtil.format_datetime(r[5])
                 self.tree.insert("", "end", values=formatted_record)
         
-        self.count_label.configure(text=f"Studenti: {count}")
+        self.count_label.configure(text=f"Total: {count}")
 
 
     def on_select(self, event):
@@ -221,7 +221,7 @@ class CareerView(ctk.CTkFrame):
         item_values = self.tree.item(selected[0])['values']
         cert_id, name = item_values[0], item_values[2] # 0 is db_id, 2 is name
 
-        if messagebox.askyesno("Conferma Eliminazione", f"Sei sicuro di voler eliminare {name}?\nQuesta operazione è irreversibile."):
+        if messagebox.askyesno("Confirmar Eliminación", f"¿Está seguro de que desea eliminar a {name}?\nEsta operación es irreversible."):
              self.db.delete_certificate(cert_id)
              self.refresh_data()
              self.btn_deliver.configure(state="disabled", fg_color="gray")

@@ -1,7 +1,7 @@
 import customtkinter as ctk
 
 class MultiSelectDropdown(ctk.CTkFrame):
-    def __init__(self, master, values, placeholder="Seleziona Gestioni", **kwargs):
+    def __init__(self, master, values, placeholder="Seleccionar Gestiones", **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
         self.values = values
         self.placeholder = placeholder
@@ -76,7 +76,7 @@ class MultiSelectDropdown(ctk.CTkFrame):
             text = ", ".join(selected_summaries)
             if len(text) > 30:
                 total_qty = sum(self.selections.values())
-                text = f"{total_qty} Gestioni selezionate"
+                text = f"{total_qty} Gestiones seleccionadas"
             self.button.configure(text=text)
             
     def get(self):

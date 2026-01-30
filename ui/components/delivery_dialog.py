@@ -5,7 +5,7 @@ class DeliveryDialog(ctk.CTkToplevel):
     def __init__(self, master, student_name, theme_color, callback):
         super().__init__(master)
         
-        self.title("Conferma Consegna")
+        self.title("Confirmar Entrega")
         self.geometry("400x300")
         self.callback = callback
         
@@ -23,15 +23,15 @@ class DeliveryDialog(ctk.CTkToplevel):
         self.grid_columnconfigure(0, weight=1)
         
         # Title
-        self.label = ctk.CTkLabel(self, text="Conferma Consegna", font=("Roboto", 20, "bold"), text_color=theme_color)
+        self.label = ctk.CTkLabel(self, text="Confirmar Entrega", font=("Roboto", 20, "bold"), text_color=theme_color)
         self.label.pack(pady=(20, 10))
         
         # Student Info
-        self.info_label = ctk.CTkLabel(self, text=f"Studente: {student_name}", font=("Roboto", 14))
+        self.info_label = ctk.CTkLabel(self, text=f"Estudiante: {student_name}", font=("Roboto", 14))
         self.info_label.pack(pady=5)
         
         # Date Input
-        ctk.CTkLabel(self, text="Data di Consegna (GG/MM/AAAA):", font=("Roboto", 12)).pack(pady=(15, 0))
+        ctk.CTkLabel(self, text="Fecha de Entrega (DD/MM/AAAA):", font=("Roboto", 12)).pack(pady=(15, 0))
         
         self.date_entry = ctk.CTkEntry(self, width=200, justify="center")
         self.date_entry.insert(0, DateUtil.get_current_date_italy())
@@ -42,10 +42,10 @@ class DeliveryDialog(ctk.CTkToplevel):
         self.buttons_frame.pack(pady=20, fill="x", padx=40)
         self.buttons_frame.grid_columnconfigure((0, 1), weight=1)
         
-        self.btn_cancel = ctk.CTkButton(self.buttons_frame, text="Annulla", fg_color="gray", command=self.destroy)
+        self.btn_cancel = ctk.CTkButton(self.buttons_frame, text="Anular", fg_color="gray", command=self.destroy)
         self.btn_cancel.grid(row=0, column=0, padx=5)
         
-        self.btn_confirm = ctk.CTkButton(self.buttons_frame, text="Conferma", fg_color=theme_color, command=self.confirm)
+        self.btn_confirm = ctk.CTkButton(self.buttons_frame, text="Confirmar", fg_color=theme_color, command=self.confirm)
         self.btn_confirm.grid(row=0, column=1, padx=5)
 
     def confirm(self):
@@ -57,4 +57,4 @@ class DeliveryDialog(ctk.CTkToplevel):
             self.destroy()
         else:
             from tkinter import messagebox
-            messagebox.showerror("Errore", "Formato data non valido. Usa GG/MM/AAAA")
+            messagebox.showerror("Error", "Formato de fecha no válido. Use DD/MM/AAAA")

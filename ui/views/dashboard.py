@@ -35,7 +35,7 @@ class Dashboard(ctk.CTkFrame):
             btn.grid(row=row, column=col, padx=20, pady=20, sticky="nsew")
 
         # Export Button (Bottom)
-        self.btn_export = ctk.CTkButton(self, text="Reportistica / Export", command=self.on_export)
+        self.btn_export = ctk.CTkButton(self, text="Reportes / Exportar", command=self.on_export)
         self.btn_export.grid(row=2, column=0, columnspan=2, pady=20)
 
     def _adjust_color(self, hex_color):
