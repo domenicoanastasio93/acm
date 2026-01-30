@@ -47,3 +47,5 @@ HELP.md
 
 .gemini*
 .venv*
+acm_data.db
+Report*

@@ -56,7 +56,7 @@ class CareerView(ctk.CTkFrame):
 
         # Search Bar
         self.search_var = ctk.StringVar()
-        self.search_var.trace("w", self.filter_list)
+        self.search_var.trace_add("write", self.filter_list)
         self.search_entry = ctk.CTkEntry(self.list_frame, placeholder_text="Cerca per nome...", textvariable=self.search_var)
         self.search_entry.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
