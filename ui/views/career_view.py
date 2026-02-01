@@ -139,10 +139,15 @@ class CareerView(ctk.CTkFrame):
         numero = self.entry_numero.get()
         name = self.entry_name.get()
         factura = self.entry_factura.get()
-        gestion = self.entry_gestion.get()
+        gestiones = self.entry_gestion.get_selected_items()
 
         if name: # Solo il nome è obbligatorio
-            self.db.add_certificate(numero, name, self.career_name, factura, gestion)
+            if not gestiones:
+                gestiones = [""]
+
+            for gestion in gestiones:
+                self.db.add_certificate(numero, name, self.career_name, factura, gestion)
+
             self.entry_numero.delete(0, "end")
             self.entry_name.delete(0, "end")
             self.entry_factura.delete(0, "end")
@@ -152,18 +157,7 @@ class CareerView(ctk.CTkFrame):
             messagebox.showwarning("Atención", "El nombre del estudiante es obligatorio.")
 
     def refresh_data(self):
-        # Clear tree
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        
-        records = self.db.get_pending_certificates(self.career_name)
-        for r in records:
-            # r: (id, numero, nombre, factura, gestion, fecha)
-            formatted_record = list(r)
-            formatted_record[5] = DateUtil.format_datetime(r[5])
-            self.tree.insert("", "end", values=formatted_record)
-
-        
+        # We just call filter_list as it already handles clearing, fetching and displaying
         self.filter_list()
 
     def filter_list(self, *args):

@@ -1,27 +1,18 @@
-import openpyxl
-import re
-import os
+from datetime import datetime
 
-def get_unique_gestioni(file_path='ITQ FNO ENF.xlsx'):
-    if not os.path.exists(file_path):
-        return []
+def get_unique_gestioni():
+    """
+    Generates a list of semesters (gestioni) from 2010 to the current year + 1.
+    Format: I-YY, II-YY (e.g., I-10, II-10, ..., I-26, II-26)
+    """
+    start_year = 2010
+    current_year = datetime.now().year
+    end_year = current_year + 1
     
-    try:
-        wb = openpyxl.load_workbook(file_path, data_only=True)
-        sheet = wb.active
-        # GESTIÓN is assumed to be the 3rd column (index 2) based on inspection
-        # Data starts from row 3 (index 2) as seen in inspection (row 1 is title, row 2 is headers)
-        unique_gestioni = set()
+    gestioni = []
+    for year in range(start_year, end_year + 1):
+        yy = str(year)[-2:]
+        gestioni.append(f"I-{yy}")
+        gestioni.append(f"II-{yy}")
         
-        for row in sheet.iter_rows(min_row=3, values_only=True):
-            gestion_value = row[2]
-            if gestion_value:
-                # Find all patterns like I-20, II-21, etc.
-                matches = re.findall(r'I+-\d+', str(gestion_value))
-                for match in matches:
-                    unique_gestioni.add(match)
-        
-        return sorted(unique_gestioni)
-    except Exception as e:
-        print(f"Error reading Excel file: {e}")
-        return []
+    return gestioni

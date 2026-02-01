@@ -21,34 +21,51 @@ class MultiSelectDropdown(ctk.CTkFrame):
         self.is_open = True
         
         self.rows = []
-        for val in self.values:
-            row = ctk.CTkFrame(self.dropdown_frame, fg_color="transparent")
-            row.pack(fill="x", padx=5, pady=4)
+        self._load_index = 0
+        self._load_batch()
             
-            lbl = ctk.CTkLabel(row, text=val, font=("Roboto", 13), anchor="w")
-            lbl.pack(side="left", padx=(10, 5), expand=True, fill="x")
+    def _load_batch(self):
+        """Loads items in small batches to keep the UI responsive."""
+        batch_size = 10
+        for _ in range(batch_size):
+            if self._load_index >= len(self.values):
+                return
             
-            # Counter Container
-            counter_frame = ctk.CTkFrame(row, fg_color="#1E1E1E", corner_radius=6)
-            counter_frame.pack(side="right", padx=10)
+            val = self.values[self._load_index]
+            self._create_row(val)
+            self._load_index += 1
             
-            minus_btn = ctk.CTkButton(counter_frame, text="-", width=28, height=28, 
-                                      fg_color="transparent", hover_color="#333",
-                                      font=("Roboto", 16, "bold"),
-                                      command=lambda v=val: self.change_qty(v, -1))
-            minus_btn.pack(side="left")
-            
-            qty_lbl = ctk.CTkLabel(counter_frame, text="0", width=30, font=("Roboto", 12, "bold"))
-            qty_lbl.pack(side="left")
-            
-            plus_btn = ctk.CTkButton(counter_frame, text="+", width=28, height=28,
-                                     fg_color="transparent", hover_color="#333",
-                                     font=("Roboto", 16, "bold"),
-                                     command=lambda v=val: self.change_qty(v, 1))
-            plus_btn.pack(side="left")
-            
-            self.rows.append({"val": val, "qty_lbl": qty_lbl})
-            
+        # Schedule next batch
+        self.after(5, self._load_batch)
+
+    def _create_row(self, val):
+        row = ctk.CTkFrame(self.dropdown_frame, fg_color="transparent")
+        row.pack(fill="x", padx=5, pady=2) # Reduced pady for better density
+        
+        lbl = ctk.CTkLabel(row, text=val, font=("Roboto", 13), anchor="w")
+        lbl.pack(side="left", padx=(10, 5), expand=True, fill="x")
+        
+        # Counter Container
+        counter_frame = ctk.CTkFrame(row, fg_color="#1E1E1E", corner_radius=6)
+        counter_frame.pack(side="right", padx=10)
+        
+        minus_btn = ctk.CTkButton(counter_frame, text="-", width=28, height=28, 
+                                    fg_color="transparent", hover_color="#333",
+                                    font=("Roboto", 16, "bold"),
+                                    command=lambda v=val: self.change_qty(v, -1))
+        minus_btn.pack(side="left")
+        
+        qty_lbl = ctk.CTkLabel(counter_frame, text="0", width=30, font=("Roboto", 12, "bold"))
+        qty_lbl.pack(side="left")
+        
+        plus_btn = ctk.CTkButton(counter_frame, text="+", width=28, height=28,
+                                    fg_color="transparent", hover_color="#333",
+                                    font=("Roboto", 16, "bold"),
+                                    command=lambda v=val: self.change_qty(v, 1))
+        plus_btn.pack(side="left")
+        
+        self.rows.append({"val": val, "qty_lbl": qty_lbl})
+
     def change_qty(self, val, delta):
         new_qty = max(0, self.selections[val] + delta)
         self.selections[val] = new_qty
@@ -89,6 +106,16 @@ class MultiSelectDropdown(ctk.CTkFrame):
                 else:
                     result_parts.append(f"{val} (X{qty})")
         return " ".join(result_parts)
+
+    def get_selected_items(self):
+        """Returns a list of all selected items, repeating them if quantity > 1.
+           Example: ['I-20', 'I-20', 'II-21']
+        """
+        items = []
+        for val, qty in self.selections.items():
+            for _ in range(qty):
+                items.append(val)
+        return items
         
     def delete(self, start, end):
         # Reset all quantities (Compatibility with CTkEntry.delete)
