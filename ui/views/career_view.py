@@ -67,13 +67,19 @@ class CareerView(ctk.CTkFrame):
         self.search_header.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
         self.search_header.grid_columnconfigure(0, weight=1)
 
+        self.search_label = ctk.CTkLabel(self.search_header, text="🔍 Búsqueda:", font=("Roboto", 12, "bold"))
+        self.search_label.grid(row=0, column=0, padx=(0, 10))
+
         self.search_var = ctk.StringVar()
         self.search_var.trace_add("write", self.filter_list)
-        self.search_entry = ctk.CTkEntry(self.search_header, placeholder_text="Buscar por nombre...", textvariable=self.search_var)
-        self.search_entry.grid(row=0, column=0, sticky="ew")
+        self.search_entry = ctk.CTkEntry(self.search_header, placeholder_text="Nombre o Número de Factura...", textvariable=self.search_var)
+        self.search_entry.grid(row=0, column=1, sticky="ew")
 
-        self.count_label = ctk.CTkLabel(self.search_header, text="Total: 0", font=("Roboto", 12, "bold"))
-        self.count_label.grid(row=0, column=1, padx=(10, 0))
+        self.count_label = ctk.CTkLabel(self.search_header, text="Total Certificados: 0", font=("Roboto", 12, "bold"))
+        self.count_label.grid(row=0, column=2, padx=(10, 0))
+        
+        self.list_frame.grid_columnconfigure(0, weight=1)
+        self.search_header.grid_columnconfigure(1, weight=1)
 
         # Treeview Style
         style = ttk.Style()
@@ -169,11 +175,16 @@ class CareerView(ctk.CTkFrame):
         count = 0
         for r in records:
             # r: (id, numero, nombre, factura, gestion, fecha)
-            name = r[2] if r[2] else ""
-            factura = r[3] if r[3] else ""
+            numero = str(r[1]) if r[1] else ""
+            name = str(r[2]) if r[2] else ""
+            factura = str(r[3]) if r[3] else ""
             gestion_str = r[4] if r[4] else ""
             
-            if query in name.lower() or query in str(factura).lower():
+            # Search in Name OR Invoice OR Manual Number (N.)
+            if (query in name.lower() or 
+                query in factura.lower() or 
+                query in numero.lower()):
+                
                 count += self._count_certificates_in_record(gestion_str)
                 
                 formatted_record = list(r)
