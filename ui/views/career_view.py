@@ -174,37 +174,7 @@ class CareerView(ctk.CTkFrame):
             gestion_str = r[4] if r[4] else ""
             
             if query in name.lower() or query in str(factura).lower():
-                # Correctly count certificates in this record
-                # If it's a new atomic record, it's just 1.
-                # If it's an old record like "I-20 (X2) II-21", we count them.
-                import re
-                
-                # Find all multipliers like (X3) or (x3)
-                multipliers = re.findall(r'[xX](\d+)', gestion_str)
-                if multipliers:
-                    # Sum of multipliers
-                    record_count = sum(int(m) for m in multipliers)
-                    # Add any gestion that doesn't have a multiplier (if any exist in the same string)
-                    # Standard format was "I-20 (X2) II-21". 
-                    # This logic covers both cases.
-                    # Simplified for safety: if there are no (Xn), we count the number of "I-" or "II-" patterns
-                    pass 
-                
-                # More robust count:
-                # 1. Start with the number of semester patterns (I- or II-)
-                all_gestiones = re.findall(r'[I]{1,2}-\d+', gestion_str)
-                num_base = len(all_gestiones)
-                
-                # 2. Add extra units from multipliers (e.g., (X2) adds 1 extra unit to the base 1)
-                extra = 0
-                for match in re.finditer(r'\(?[xX](\d+)\)?', gestion_str):
-                    extra += int(match.group(1)) - 1
-                
-                actual_cert_count = max(1, num_base + extra) if gestion_str else 0
-                if not all_gestiones and gestion_str: # fallback for manual entries
-                    actual_cert_count = 1
-
-                count += actual_cert_count
+                count += self._count_certificates_in_record(gestion_str)
                 
                 formatted_record = list(r)
                 formatted_record[5] = DateUtil.format_datetime(r[5])
@@ -212,6 +182,29 @@ class CareerView(ctk.CTkFrame):
         
         self.count_label.configure(text=f"Total Certificados: {count}")
 
+    def _count_certificates_in_record(self, gestion_str):
+        """
+        Counts the number of physical certificates in a gestion string.
+        Handles both new atomic format ("I-20") and old aggregate format ("I-20 (X2) II-21").
+        """
+        import re
+        if not gestion_str:
+            return 0
+            
+        # 1. Start with the number of semester patterns (I- or II-)
+        all_gestiones = re.findall(r'[I]{1,2}-\d+', gestion_str)
+        num_base = len(all_gestiones)
+        
+        # 2. Add extra units from multipliers (e.g., (X2) adds 1 extra unit to the base 1)
+        extra = 0
+        for match in re.finditer(r'\(?[xX](\d+)\)?', gestion_str):
+            extra += int(match.group(1)) - 1
+        
+        actual_cert_count = max(1, num_base + extra)
+        if not all_gestiones: # fallback for completely manual entries without standard format
+            actual_cert_count = 1
+            
+        return actual_cert_count
 
     def on_select(self, event):
         selected = self.tree.selection()
