@@ -169,13 +169,48 @@ class CareerView(ctk.CTkFrame):
         count = 0
         for r in records:
             # r: (id, numero, nombre, factura, gestion, fecha)
-            if query in r[2].lower(): # r[2] is name
-                count += 1
+            name = r[2] if r[2] else ""
+            factura = r[3] if r[3] else ""
+            gestion_str = r[4] if r[4] else ""
+            
+            if query in name.lower() or query in str(factura).lower():
+                # Correctly count certificates in this record
+                # If it's a new atomic record, it's just 1.
+                # If it's an old record like "I-20 (X2) II-21", we count them.
+                import re
+                
+                # Find all multipliers like (X3) or (x3)
+                multipliers = re.findall(r'[xX](\d+)', gestion_str)
+                if multipliers:
+                    # Sum of multipliers
+                    record_count = sum(int(m) for m in multipliers)
+                    # Add any gestion that doesn't have a multiplier (if any exist in the same string)
+                    # Standard format was "I-20 (X2) II-21". 
+                    # This logic covers both cases.
+                    # Simplified for safety: if there are no (Xn), we count the number of "I-" or "II-" patterns
+                    pass 
+                
+                # More robust count:
+                # 1. Start with the number of semester patterns (I- or II-)
+                all_gestiones = re.findall(r'[I]{1,2}-\d+', gestion_str)
+                num_base = len(all_gestiones)
+                
+                # 2. Add extra units from multipliers (e.g., (X2) adds 1 extra unit to the base 1)
+                extra = 0
+                for match in re.finditer(r'\(?[xX](\d+)\)?', gestion_str):
+                    extra += int(match.group(1)) - 1
+                
+                actual_cert_count = max(1, num_base + extra) if gestion_str else 0
+                if not all_gestiones and gestion_str: # fallback for manual entries
+                    actual_cert_count = 1
+
+                count += actual_cert_count
+                
                 formatted_record = list(r)
                 formatted_record[5] = DateUtil.format_datetime(r[5])
                 self.tree.insert("", "end", values=formatted_record)
         
-        self.count_label.configure(text=f"Total: {count}")
+        self.count_label.configure(text=f"Total Certificados: {count}")
 
 
     def on_select(self, event):
