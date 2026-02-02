@@ -42,10 +42,10 @@ class DeliveryDialog(ctk.CTkToplevel):
         self.buttons_frame.pack(pady=20, fill="x", padx=40)
         self.buttons_frame.grid_columnconfigure((0, 1), weight=1)
         
-        self.btn_cancel = ctk.CTkButton(self.buttons_frame, text="Anular", fg_color="gray", command=self.destroy)
+        self.btn_cancel = ctk.CTkButton(self.buttons_frame, text="Anular", fg_color="gray", hover_color="#6d7370", command=self.destroy)
         self.btn_cancel.grid(row=0, column=0, padx=5)
         
-        self.btn_confirm = ctk.CTkButton(self.buttons_frame, text="Confirmar", fg_color=theme_color, command=self.confirm)
+        self.btn_confirm = ctk.CTkButton(self.buttons_frame, text="Confirmar", fg_color="#27ae60", hover_color="#219150", command=self.confirm)
         self.btn_confirm.grid(row=0, column=1, padx=5)
 
     def confirm(self):

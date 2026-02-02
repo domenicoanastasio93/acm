@@ -345,9 +345,9 @@ class CareerView(ctk.CTkFrame):
             is_delivered = "delivered" in tags
             
             if is_delivered:
-                self.btn_deliver.configure(text="Anular Entrega", state="normal", fg_color="#f39c12", command=self.undo_delivery)
+                self.btn_deliver.configure(text="Anular Entrega", state="normal", fg_color="#f39c12", hover_color="#d3840e", command=self.undo_delivery)
             else:
-                self.btn_deliver.configure(text="Entregar Certificado", state="normal", fg_color="#9512f3", command=self.deliver_certificate)
+                self.btn_deliver.configure(text="Entregar Certificado", state="normal", fg_color="#9512f3", hover_color="#7d0fca", command=self.deliver_certificate)
                  
             self.btn_delete.configure(state="normal", fg_color="#e74c3c")
         else:
@@ -445,7 +445,14 @@ class CareerView(ctk.CTkFrame):
 
             now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"Report_{self.career_name}_{now}.xlsx"
-            save_path = os.path.join("/Users/domenico/Downloads", filename)
+            
+            # Use Downloads folder if it exists, otherwise use Home
+            home = os.path.expanduser("~")
+            downloads = os.path.join(home, "Downloads")
+            if os.path.exists(downloads):
+                save_path = os.path.join(downloads, filename)
+            else:
+                save_path = os.path.join(home, filename)
             
             wb.save(save_path)
             messagebox.showinfo("Éxito", f"Archivo guardado: {save_path}")

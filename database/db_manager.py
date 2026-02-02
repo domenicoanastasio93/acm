@@ -1,15 +1,36 @@
 import sqlite3
 from datetime import datetime
 import os
+import sys
 
 class DatabaseManager:
-    DB_NAME = "acm_data.db"
-
     def __init__(self):
+        # Determine base path for the database
+        if getattr(sys, 'frozen', False):
+            # Running as a PyInstaller executable
+            base_path = os.path.dirname(sys.executable)
+        else:
+            # Running as a normal script
+            # Go up one level from database/ folder to the root
+            base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            
+        self.db_path = os.path.join(base_path, "acm_data.db")
+        
+        # If running as EXE and DB doesn't exist in the EXE folder, 
+        # try to copy the bundled template if it exists
+        if getattr(sys, 'frozen', False) and not os.path.exists(self.db_path):
+            import shutil
+            bundled_db = os.path.join(sys._MEIPASS, "acm_data.db")
+            if os.path.exists(bundled_db):
+                try:
+                    shutil.copy2(bundled_db, self.db_path)
+                except Exception:
+                    pass
+                    
         self._init_db()
 
     def _get_connection(self):
-        return sqlite3.connect(self.DB_NAME)
+        return sqlite3.connect(self.db_path)
 
     def _init_db(self):
         conn = self._get_connection()

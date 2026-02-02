@@ -57,8 +57,8 @@ class RegisterDialog(ctk.CTkToplevel):
 
         # Bottom Row: Save Button
         self.btn_save = ctk.CTkButton(self.main_frame, text="Registrar Estudiante", 
-                                      fg_color=self.theme_color, 
-                                      hover_color="#219150" if self.theme_color == "#27ae60" else None, 
+                                      fg_color="#27ae60", 
+                                      hover_color="#219150", 
                                       width=300, height=50, font=("Roboto", 18, "bold"), 
                                       command=self.confirm)
         self.btn_save.grid(row=1, column=0, columnspan=2, pady=20)
