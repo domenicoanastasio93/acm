@@ -2,10 +2,9 @@ import customtkinter as ctk
 from utils.constants import CAREER_THEMES
 
 class Dashboard(ctk.CTkFrame):
-    def __init__(self, master, on_navigate, on_export):
+    def __init__(self, master, on_navigate):
         super().__init__(master)
         self.on_navigate = on_navigate
-        self.on_export = on_export
 
         self.grid_columnconfigure((0, 1), weight=1)
         self.grid_rowconfigure((0, 1), weight=1)
@@ -33,10 +32,6 @@ class Dashboard(ctk.CTkFrame):
             )
             # Make them big
             btn.grid(row=row, column=col, padx=20, pady=20, sticky="nsew")
-
-        # Export Button (Bottom)
-        self.btn_export = ctk.CTkButton(self, text="Reportes / Exportar", command=self.on_export)
-        self.btn_export.grid(row=2, column=0, columnspan=2, pady=20)
 
     def _adjust_color(self, hex_color):
         # Simply return a slightly darker or lighter version for hover if needed

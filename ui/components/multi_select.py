@@ -16,7 +16,7 @@ class MultiSelectDropdown(ctk.CTkFrame):
         # Scrollable frame for the list of items
         self.dropdown_frame = ctk.CTkScrollableFrame(self, height=250, fg_color="#2B2B2B",
                                                      border_width=1, border_color="#444")
-        self.dropdown_frame.pack(fill="x", pady=(5, 0))
+        self.dropdown_frame.pack(fill="both", expand=True, pady=(5, 0))
         
         self.year_sections = {} # {year_suffix: {'frame': scrollable_frame, 'content': list_frame, 'is_open': bool, 'btn': button}}
         self.rows = []

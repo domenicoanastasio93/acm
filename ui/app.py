@@ -1,7 +1,6 @@
 import customtkinter as ctk
 from ui.views.dashboard import Dashboard
 from ui.views.career_view import CareerView
-from ui.views.export_view import ExportView
 
 class App(ctk.CTk):
     def __init__(self):
@@ -21,17 +20,12 @@ class App(ctk.CTk):
 
     def show_dashboard(self):
         self.clear_container()
-        dashboard = Dashboard(self.container, on_navigate=self.show_career_view, on_export=self.show_export_view)
+        dashboard = Dashboard(self.container, on_navigate=self.show_career_view)
         dashboard.pack(fill="both", expand=True)
 
     def show_career_view(self, career_name, theme_color):
         self.clear_container()
         view = CareerView(self.container, career_name, theme_color, back_callback=self.show_dashboard)
-        view.pack(fill="both", expand=True)
-
-    def show_export_view(self):
-        self.clear_container()
-        view = ExportView(self.container, back_callback=self.show_dashboard)
         view.pack(fill="both", expand=True)
 
     def clear_container(self):

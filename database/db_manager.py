@@ -22,6 +22,7 @@ class DatabaseManager:
                 carrera TEXT NOT NULL,
                 num_factura TEXT,
                 gestion TEXT,
+                notas TEXT,
                 estado INTEGER DEFAULT 0, -- 0: Pendiente, 1: Entregado
                 fecha_registro TEXT,
                 fecha_entrega TEXT
@@ -32,28 +33,30 @@ class DatabaseManager:
         columns = [col[1] for col in cursor.fetchall()]
         if 'numero' not in columns:
             cursor.execute('ALTER TABLE certificados ADD COLUMN numero TEXT')
+        if 'notas' not in columns:
+            cursor.execute('ALTER TABLE certificados ADD COLUMN notas TEXT')
             
         conn.commit()
         conn.close()
 
-    def add_certificate(self, numero, nombre, carrera, num_factura, gestion):
+    def add_certificate(self, numero, nombre, carrera, num_factura, gestion, notas=None):
         conn = self._get_connection()
         cursor = conn.cursor()
         fecha_registro = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute('''
-            INSERT INTO certificados (numero, nombre_estudiante, carrera, num_factura, gestion, estado, fecha_registro)
-            VALUES (?, ?, ?, ?, ?, 0, ?)
-        ''', (numero, nombre, carrera, num_factura, gestion, fecha_registro))
+            INSERT INTO certificados (numero, nombre_estudiante, carrera, num_factura, gestion, notas, estado, fecha_registro)
+            VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+        ''', (numero, nombre, carrera, num_factura, gestion, notas, fecha_registro))
         conn.commit()
         conn.close()
 
-    def get_pending_certificates(self, carrera):
+    def get_career_certificates(self, carrera):
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT id, COALESCE(numero, ''), nombre_estudiante, num_factura, gestion, fecha_registro 
+            SELECT id, COALESCE(numero, ''), nombre_estudiante, num_factura, gestion, fecha_registro, estado, COALESCE(notas, ''), fecha_entrega
             FROM certificados 
-            WHERE carrera = ? AND estado = 0
+            WHERE carrera = ?
             ORDER BY TRIM(nombre_estudiante) COLLATE NOCASE ASC
         ''', (carrera,))
         rows = cursor.fetchall()
@@ -85,7 +88,7 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         query = '''
-            SELECT id, COALESCE(numero, ''), nombre_estudiante, carrera, num_factura, gestion, fecha_entrega
+            SELECT id, COALESCE(numero, ''), nombre_estudiante, carrera, num_factura, gestion, fecha_entrega, COALESCE(notas, '')
             FROM certificados
             WHERE estado = 1
         '''
@@ -121,7 +124,7 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         query = '''
-            SELECT id, COALESCE(numero, ''), nombre_estudiante, carrera, num_factura, gestion, fecha_entrega
+            SELECT id, COALESCE(numero, ''), nombre_estudiante, carrera, num_factura, gestion, fecha_entrega, COALESCE(notas, '')
             FROM certificados
             WHERE estado = 1
         '''
@@ -154,4 +157,25 @@ class DatabaseManager:
             WHERE id = ?
         ''', (cert_id,))
         conn.commit()
+        conn.close()
+
+    def update_certificate_field(self, cert_id, field_name, new_value):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Mapping Treeview column names to DB column names
+        field_map = {
+            "N.": "numero",
+            "Nombre": "nombre_estudiante",
+            "Factura": "num_factura",
+            "Gestión": "gestion",
+            "Notas": "notas"
+        }
+        
+        db_column = field_map.get(field_name)
+        if db_column:
+            query = f"UPDATE certificados SET {db_column} = ? WHERE id = ?"
+            cursor.execute(query, (new_value, cert_id))
+            conn.commit()
+        
         conn.close()

@@ -2,11 +2,11 @@ from datetime import datetime
 
 def get_unique_gestioni():
     """
-    Generates a list of semesters (gestioni) from 2010 to the current year + 1.
+    Generates a list of semesters (gestioni) from 2010 to the current year.
     Format: I-YY, II-YY (e.g., I-10, II-10, ..., I-26, II-26)
     """
     start_year = 2010
-    end_year = 2030
+    end_year = datetime.now().year
     
     gestioni = []
     for year in range(end_year, start_year - 1, -1):
