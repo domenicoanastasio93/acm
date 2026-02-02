@@ -145,14 +145,10 @@ class CareerView(ctk.CTkFrame):
         numero = self.entry_numero.get()
         name = self.entry_name.get()
         factura = self.entry_factura.get()
-        gestiones = self.entry_gestion.get_selected_items()
+        gestion_str = self.entry_gestion.get() # Prende la stringa raggruppata es. "I-24 (X2) I-25"
 
         if name: # Solo il nome è obbligatorio
-            if not gestiones:
-                gestiones = [""]
-
-            for gestion in gestiones:
-                self.db.add_certificate(numero, name, self.career_name, factura, gestion)
+            self.db.add_certificate(numero, name, self.career_name, factura, gestion_str)
 
             self.entry_numero.delete(0, "end")
             self.entry_name.delete(0, "end")
@@ -195,27 +191,29 @@ class CareerView(ctk.CTkFrame):
 
     def _count_certificates_in_record(self, gestion_str):
         """
-        Counts the number of physical certificates in a gestion string.
-        Handles both new atomic format ("I-20") and old aggregate format ("I-20 (X2) II-21").
+        Calcula el número de certificados físicos usando una única búsqueda unificada.
+        Ejemplo: "I-24 (X3) II-24" -> 3 + 1 = 4 total.
         """
         import re
-        if not gestion_str:
+        if not gestion_str or not str(gestion_str).strip():
             return 0
             
-        # 1. Start with the number of semester patterns (I- or II-)
-        all_gestiones = re.findall(r'[I]{1,2}-\d+', gestion_str)
-        num_base = len(all_gestiones)
+        # Busca el patrón: SEMESTRE seguido opcionalmente por (Xn)
+        # Grupo 1: El semestre (es. I-24)
+        # Grupo 2: La cantidad (es. 3)
+        pattern = r'((?:II|I|VER|INV)-\d+)(?:\s*\(?[xX](\d+)\)?)?'
+        matches = re.findall(pattern, gestion_str)
         
-        # 2. Add extra units from multipliers (e.g., (X2) adds 1 extra unit to the base 1)
-        extra = 0
-        for match in re.finditer(r'\(?[xX](\d+)\)?', gestion_str):
-            extra += int(match.group(1)) - 1
-        
-        actual_cert_count = max(1, num_base + extra)
-        if not all_gestiones: # fallback for completely manual entries without standard format
-            actual_cert_count = 1
+        # Se non trova pattern standard, ma c'è del testo, lo conta come 1
+        if not matches:
+            return 1 if gestion_str.strip() else 0
             
-        return actual_cert_count
+        total = 0
+        for _, multiplier in matches:
+            # Se c'è un moltiplicatore, usa quello, altrimenti conta 1
+            total += int(multiplier) if multiplier else 1
+            
+        return total
 
     def on_select(self, event):
         selected = self.tree.selection()

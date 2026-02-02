@@ -12,7 +12,10 @@ def get_unique_gestioni():
     gestioni = []
     for year in range(start_year, end_year + 1):
         yy = str(year)[-2:]
+        # Chronological order: Summer -> Sem1 -> Winter -> Sem2
+        gestioni.append(f"VER-{yy}")
         gestioni.append(f"I-{yy}")
+        gestioni.append(f"INV-{yy}")
         gestioni.append(f"II-{yy}")
         
     return gestioni
