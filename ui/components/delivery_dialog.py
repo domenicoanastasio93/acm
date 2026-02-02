@@ -9,16 +9,20 @@ class DeliveryDialog(ctk.CTkToplevel):
         self.geometry("400x300")
         self.callback = callback
         
-        # Make it modal
-        self.lift()
-        self.attributes("-topmost", True)
-        self.grab_set()
-        
+        self.resizable(False, False)
+
         # Center the window
         self.update_idletasks()
-        x = master.winfo_x() + (master.winfo_width() // 2) - (400 // 2)
-        y = master.winfo_y() + (master.winfo_height() // 2) - (300 // 2)
-        self.geometry(f"+{x}+{y}")
+        width = 400
+        height = 300
+        x = master.winfo_x() + (master.winfo_width() // 2) - (width // 2)
+        y = master.winfo_y() + (master.winfo_height() // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
+        
+        # Safe modal setup for Windows
+        self.lift()
+        self.attributes("-topmost", True)
+        self.after(10, self.grab_set)
 
         self.grid_columnconfigure(0, weight=1)
         

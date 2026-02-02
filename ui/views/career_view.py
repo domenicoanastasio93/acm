@@ -125,13 +125,24 @@ class CareerView(ctk.CTkFrame):
         # Treeview Style
         style = ttk.Style()
         style.theme_use("default")
+        
+        try:
+            scaling_factor = ctk.ScalingTracker.get_widget_scaling(self)
+        except Exception:
+            scaling_factor = 1.0
+        # Calculate scaled row height - Further reduced font sizes
+        row_height = int(28 * scaling_factor)
+        header_font_size = int(7 * scaling_factor)
+        body_font_size = int(6 * scaling_factor)
+        
         style.configure("Treeview", 
                         background="#2b2b2b", 
                         foreground="white", 
                         fieldbackground="#2b2b2b", 
-                        rowheight=30)
+                        rowheight=row_height,
+                        font=("Roboto", body_font_size))
         style.map("Treeview", background=[("selected", self.theme_color)])
-        style.configure("Treeview.Heading", font=("Roboto", 12, "bold"))
+        style.configure("Treeview.Heading", font=("Roboto", header_font_size, "bold"))
         
         # Treeview
         # We keep ID as the first column but hide it from display, and add delivery date.
@@ -210,7 +221,7 @@ class CareerView(ctk.CTkFrame):
         self.refresh_data()
 
     def open_register_modal(self):
-        RegisterDialog(self.master, self.available_gestioni, self.theme_color, self.add_record)
+        RegisterDialog(self.winfo_toplevel(), self.available_gestioni, self.theme_color, self.add_record)
 
     def add_record(self, numero, name, factura, gestion_str, notas=None):
         if name:
@@ -384,7 +395,7 @@ class CareerView(ctk.CTkFrame):
             self.btn_deliver.configure(text="Entregar Certificado", state="disabled", fg_color="gray")
             self.btn_delete.configure(state="disabled", fg_color="gray")
 
-        DeliveryDialog(self.master, name, self.theme_color, on_confirm)
+        DeliveryDialog(self.winfo_toplevel(), name, self.theme_color, on_confirm)
 
     def undo_delivery(self):
         selected = self.tree.selection()

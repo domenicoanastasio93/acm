@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import datetime
 from utils.constants import CAREER_THEMES
 
 class Dashboard(ctk.CTkFrame):
@@ -32,6 +33,22 @@ class Dashboard(ctk.CTkFrame):
             )
             # Make them big
             btn.grid(row=row, column=col, padx=20, pady=20, sticky="nsew")
+
+        # --- Copyright Label ---
+        try:
+            scaling_factor = ctk.ScalingTracker.get_widget_scaling(self)
+        except Exception:
+            scaling_factor = 1.0
+            
+        current_year = datetime.datetime.now().year
+        copyright_text = f"© {current_year} Domenico"
+        
+        # Add a footer row with weight 0 so it doesn't expand, but buttons do
+        self.grid_rowconfigure(2, weight=0)
+        self.copyright_label = ctk.CTkLabel(self, text=copyright_text, 
+                                            font=("Roboto", int(10 * scaling_factor)), 
+                                            text_color="gray")
+        self.copyright_label.grid(row=2, column=1, sticky="se", padx=15, pady=(0, 10))
 
     def _adjust_color(self, hex_color):
         # Simply return a slightly darker or lighter version for hover if needed

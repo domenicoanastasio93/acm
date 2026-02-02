@@ -12,10 +12,19 @@ class RegisterDialog(ctk.CTkToplevel):
         self.available_gestioni = available_gestioni
 
         self.resizable(False, False)
-        self.geometry("800x550")
-        self.resizable(False, False)
+        
+        # Center the window
+        self.update_idletasks()
+        width = 800
+        height = 550
+        x = master.winfo_x() + (master.winfo_width() // 2) - (width // 2)
+        y = master.winfo_y() + (master.winfo_height() // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
+
+        # Safe modal setup for Windows
+        self.lift()
         self.attributes("-topmost", True)
-        self.grab_set()
+        self.after(10, self.grab_set)
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
