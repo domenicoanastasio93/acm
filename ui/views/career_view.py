@@ -132,8 +132,8 @@ class CareerView(ctk.CTkFrame):
             scaling_factor = 1.0
         # Calculate scaled row height - Further reduced font sizes
         row_height = int(28 * scaling_factor)
-        header_font_size = int(7 * scaling_factor)
-        body_font_size = int(6 * scaling_factor)
+        header_font_size = int(9 * scaling_factor)
+        body_font_size = int(8 * scaling_factor)
         
         style.configure("Treeview", 
                         background="#2b2b2b", 
