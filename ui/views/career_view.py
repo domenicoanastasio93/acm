@@ -6,6 +6,7 @@ from utils.excel_util import get_unique_gestioni
 from ui.components.multi_select import MultiSelectDropdown
 from ui.components.delivery_dialog import DeliveryDialog
 from ui.components.register_dialog import RegisterDialog
+from ui.components.certificate_manager_dialog import CertificateManagerDialog
 from utils.date_util import DateUtil
 import datetime
 import openpyxl
@@ -13,6 +14,7 @@ from openpyxl.styles import Font, PatternFill
 import os
 
 COL_GESTION = "Gestión"
+
 
 
 class CareerView(ctk.CTkFrame):
@@ -75,7 +77,7 @@ class CareerView(ctk.CTkFrame):
 
         # Status Filter
         self.status_list = ["Todos", "Pendientes", "Entregados"]
-        self.status_var = ctk.StringVar(value="Todos")
+        self.status_var = ctk.StringVar(value="Pendientes")
         self.status_var.trace_add("write", self.filter_list)
         ctk.CTkLabel(self.filter_frame, text="Estado:").grid(row=0, column=3, padx=5, sticky="w")
         self.status_menu = ctk.CTkOptionMenu(self.filter_frame, values=self.status_list, variable=self.status_var, width=100)
@@ -146,26 +148,27 @@ class CareerView(ctk.CTkFrame):
         
         # Treeview
         # We keep ID as the first column but hide it from display, and add delivery date.
-        columns = ("db_id", "Número", "Nombre", "Factura", COL_GESTION, "Fecha", "Entrega", "Notas")
+        # Treeview
+        # We keep ID as the first column. Gestion is hidden from view but we might need it for logic? 
+        # Actually logic uses DB records directly.
+        columns = ("db_id", "Número", "Nombre", "Factura", COL_GESTION, "Fecha", "Notas")
         self.tree = ttk.Treeview(self.list_frame, columns=columns, show="headings", selectmode="browse")
         
         # Hide the db_id column from display
-        self.tree["displaycolumns"] = ("Número", "Nombre", "Factura", COL_GESTION, "Fecha", "Entrega", "Notas")
-
+        self.tree["displaycolumns"] = ("Número", "Nombre", "Factura", COL_GESTION, "Fecha", "Notas")
+        
         self.tree.heading("Número", text="Número")
         self.tree.heading("Nombre", text="Nombre")
         self.tree.heading("Factura", text="Factura")
-        self.tree.heading(COL_GESTION, text=COL_GESTION)
+        self.tree.heading(COL_GESTION, text="Certificados")
         self.tree.heading("Fecha", text="Inserción")
-        self.tree.heading("Entrega", text="Entrega")
         self.tree.heading("Notas", text="Note")
 
         self.tree.column("Número", width=50)
-        self.tree.column("Nombre", width=200)
+        self.tree.column("Nombre", width=250)
         self.tree.column("Factura", width=80)
-        self.tree.column(COL_GESTION, width=150)
+        self.tree.column(COL_GESTION, width=100)
         self.tree.column("Fecha", width=120)
-        self.tree.column("Entrega", width=120)
         self.tree.column("Notas", width=150)
 
 
@@ -193,10 +196,10 @@ class CareerView(ctk.CTkFrame):
         self.btn_new = ctk.CTkButton(self.buttons_inner, text="+ Nuevo Registro", width=200, height=40, fg_color="#27ae60", hover_color="#219150", font=("Roboto", 13, "bold"), command=self.open_register_modal)
         self.btn_new.grid(row=0, column=0, padx=10)
 
-        self.btn_deliver = ctk.CTkButton(self.buttons_inner, text="Entregar Certificado", width=200, height=40, fg_color="gray", state="disabled", command=self.deliver_certificate)
-        self.btn_deliver.grid(row=0, column=1, padx=10)
+        self.btn_certs = ctk.CTkButton(self.buttons_inner, text="Ver Certificados", width=200, height=40, fg_color="#9512f3", state="disabled", hover_color="#7d0fca", command=self.open_certificate_manager)
+        self.btn_certs.grid(row=0, column=1, padx=10)
 
-        self.btn_delete = ctk.CTkButton(self.buttons_inner, text="Eliminar Registro", width=200, height=40, fg_color="gray", state="disabled", hover_color="#c0392b", command=self.delete_record)
+        self.btn_delete = ctk.CTkButton(self.buttons_inner, text="Eliminar Estudiante", width=200, height=40, fg_color="gray", state="disabled", hover_color="#c0392b", command=self.delete_record)
         self.btn_delete.grid(row=0, column=2, padx=10)
 
         self.btn_export = ctk.CTkButton(self.buttons_inner, text="Exportar Excel", width=200, height=40, fg_color="#2196F3", hover_color="#1976D2", font=("Roboto", 13, "bold"), command=self.do_export)
@@ -211,12 +214,16 @@ class CareerView(ctk.CTkFrame):
         
         # Context menu (Right click)
         self.menu = tk.Menu(self, tearoff=0)
-        self.menu.add_command(label="Entregar Certificado", command=self.deliver_certificate)
-        self.menu.add_command(label="Eliminar Registro", command=self.delete_record)
+        self.menu.add_command(label="Ver Certificados", command=self.open_certificate_manager)
+        self.menu.add_command(label="Eliminar Estudiante", command=self.delete_record)
         self.tree.bind("<Button-2>" if self.tk.call('tk', 'windowingsystem') == 'aqua' else "<Button-3>", self.show_menu)
         
-        # Tag configuration for delivered items
+        # Tag configuration for colors
+        # Green for fully delivered
         self.tree.tag_configure("delivered", foreground="#00E676")
+        # Yellow/Gold for partially delivered
+        self.tree.tag_configure("partial", foreground="#FBC02D") 
+
 
         self.refresh_data()
 
@@ -310,15 +317,26 @@ class CareerView(ctk.CTkFrame):
                 gestion_query in gestion_str.lower() and
                 date_match and delivery_match and status_match):
                 
-                count += self._count_certificates_in_record(gestion_str)
+                count += self._count_certificates_in_record(r[4])
                 
-                # Create the record for the treeview
-                # columns = ("db_id", "N.", "Nombre", "Factura", "Gestión", "Fecha", "Entrega", "Notas")
-                fecha_entrega = r[8]
-                fecha_entrega_formattata = DateUtil.format_datetime(fecha_entrega)
-                formatted_record = [r[0], numero, name, factura, gestion_str, fecha_formattata, fecha_entrega_formattata, notas]
+                # Get counts for the Gestión status column
+                total_purchased, delivered_count = self.db.get_certificate_counts(r[0])
+                gestion_summary = f"{delivered_count}/{total_purchased}"
                 
-                tags = ("delivered",) if estado == 1 else ()
+                # columns = ("db_id", "Número", "Nombre", "Factura", COL_GESTION, "Fecha", "Notas")
+                formatted_record = [r[0], numero, name, factura, gestion_summary, fecha_formattata, notas]
+                
+                # Tagging logic based on counts
+                if total_purchased > 0:
+                    if delivered_count == total_purchased:
+                        tags = ("delivered",) # Full Green row/text
+                    elif delivered_count > 0:
+                        tags = ("partial",)   # Yellow row/text
+                    else:
+                        tags = ()             # White
+                else:
+                    tags = ()
+                    
                 self.tree.insert("", "end", values=formatted_record, tags=tags)
         
         self.count_label.configure(text=f"Total Certificados: {count}")
@@ -352,75 +370,49 @@ class CareerView(ctk.CTkFrame):
     def on_select(self, event):
         selected = self.tree.selection()
         if selected:
-            tags = self.tree.item(selected[0])['tags']
-            is_delivered = "delivered" in tags
-            
-            if is_delivered:
-                self.btn_deliver.configure(text="Anular Entrega", state="normal", fg_color="#f39c12", hover_color="#d3840e", command=self.undo_delivery)
-            else:
-                self.btn_deliver.configure(text="Entregar Certificado", state="normal", fg_color="#9512f3", hover_color="#7d0fca", command=self.deliver_certificate)
-                 
+            self.btn_certs.configure(state="normal", fg_color="#9512f3")
             self.btn_delete.configure(state="normal", fg_color="#e74c3c")
         else:
-            self.btn_deliver.configure(text="Entregar Certificado", state="disabled", fg_color="gray")
+            self.btn_certs.configure(state="disabled", fg_color="gray")
             self.btn_delete.configure(state="disabled", fg_color="gray")
 
     def show_menu(self, event):
         item = self.tree.identify_row(event.y)
         if item:
             self.tree.selection_set(item)
-            # Dynamic menu based on status
-            tags = self.tree.item(item)['tags']
-            is_delivered = "delivered" in tags
-            
-            self.menu.delete(0, "end")
-            if is_delivered:
-                self.menu.add_command(label="Anular Entrega", command=self.undo_delivery)
-            else:
-                self.menu.add_command(label="Entregar Certificado", command=self.deliver_certificate)
-            self.menu.add_command(label="Eliminar Registro", command=self.delete_record)
-            
             self.menu.post(event.x_root, event.y_root)
 
-    def deliver_certificate(self):
+    def open_certificate_manager(self):
         selected = self.tree.selection()
         if not selected: return
         
         item_values = self.tree.item(selected[0])['values']
-        cert_id, name = item_values[0], item_values[2] # 0 is db_id, 2 is name
+        db_id = item_values[0]
+        name = item_values[2] # Name is 3rd in query, but Treeview columns changed.
+        # Treeview order: db_id (0), Numero (1), Name (2)...
+        
+        CertificateManagerDialog(self.winfo_toplevel(), db_id, name, self.theme_color, on_close_callback=self.refresh_data)
 
-        def on_confirm(custom_date):
-            self.db.mark_as_delivered(cert_id, custom_date)
-            self.refresh_data()
-            self.btn_deliver.configure(text="Entregar Certificado", state="disabled", fg_color="gray")
-            self.btn_delete.configure(state="disabled", fg_color="gray")
-
-        DeliveryDialog(self.winfo_toplevel(), name, self.theme_color, on_confirm)
+    def deliver_certificate(self):
+        # Deprecated logic, redirected to manager
+        self.open_certificate_manager()
 
     def undo_delivery(self):
-        selected = self.tree.selection()
-        if not selected: return
-        
-        item_values = self.tree.item(selected[0])['values']
-        cert_id, name = item_values[0], item_values[2] # 0 is db_id, 2 is name
-
-        if messagebox.askyesno("Confirmar Restablecimiento", f"¿Desea anular la entrega para {name}?"):
-            self.db.undo_delivery(cert_id)
-            self.refresh_data()
-            self.btn_deliver.configure(text="Entregar Certificado", state="disabled", fg_color="gray")
-            self.btn_delete.configure(state="disabled", fg_color="gray")
+        # Deprecated logic, redirected to manager
+        self.open_certificate_manager()
 
     def delete_record(self):
         selected = self.tree.selection()
         if not selected: return
         
         item_values = self.tree.item(selected[0])['values']
-        cert_id, name = item_values[0], item_values[2] # 0 is db_id, 2 is name
+        db_id = item_values[0]
+        name = item_values[2]
 
-        if messagebox.askyesno("Confirmar Eliminación", f"¿Está seguro de que desea eliminar a {name}?\nEsta operación es irreversible."):
-             self.db.delete_certificate(cert_id)
+        if messagebox.askyesno("Confirmar Eliminación", f"¿Está seguro de que desea eliminar a {name} y TODOS sus certificados?\nEsta operación es irreversible."):
+             self.db.delete_certificate(db_id)
              self.refresh_data()
-             self.btn_deliver.configure(text="Entregar Certificado", state="disabled", fg_color="gray")
+             self.btn_certs.configure(state="disabled", fg_color="gray")
              self.btn_delete.configure(state="disabled", fg_color="gray")
 
     def do_export(self):
@@ -435,24 +427,53 @@ class CareerView(ctk.CTkFrame):
             ws = wb.active
             ws.title = f"Report {self.career_name}"
 
-            headers = ["Número", "Nombre Estudiante", "Factura", COL_GESTION, "Fecha Registro", "Fecha Entrega", "Notas"]
+            # Headers - Added Fecha Entrega back for items
+            headers = ["Número", "Nombre Estudiante", "Factura", "Gestión", "Fecha Registro", "Fecha Entrega", "Notas"]
             ws.append(headers)
             for cell in ws[1]:
                 cell.font = Font(bold=True)
 
             green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid") # Standard Excel Light Green
+            yellow_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid") # Light Yellow
 
             for item in items:
+                # Student Data
                 values = self.tree.item(item)['values']
                 tags = self.tree.item(item)['tags']
-                # values: [db_id, Número, Nombre, Factura, Gestión, Fecha, Entrega, Notas]
-                # Skip db_id (index 0)
-                ws.append(values[1:])
+                db_id = values[0]
                 
+                # values: [db_id, Número, Nombre, Factura, Gestión, Fecha, Notas]
+                # Map to Export Headers: [Num, Name, Fact, Gest, Date, DelDate, Notes]
+                student_row = [values[1], values[2], values[3], values[4], values[5], "", values[6]]
+                ws.append(student_row)
+                
+                # Apply fill to Student Row
                 if "delivered" in tags:
                     row_idx = ws.max_row
                     for cell in ws[row_idx]:
                         cell.fill = green_fill
+                elif "partial" in tags:
+                    row_idx = ws.max_row
+                    for cell in ws[row_idx]:
+                        cell.fill = yellow_fill
+
+                # Certificate Items (Children)
+                cert_items = self.db.get_certificate_items(db_id)
+                for cert in cert_items:
+                    # cert: (id, item_name, estado, fecha_entrega)
+                    c_name = cert[1]
+                    c_date = cert[3]
+                    c_date_fmt = DateUtil.format_datetime(c_date) if c_date else ""
+                    
+                    # Indented row for item
+                    # Put name in Gestion column (index 3 in 0-based list, column 4 in Excel)
+                    # Put date in Fecha Entrega column (index 5)
+                    item_row = ["", "", "", c_name, "", c_date_fmt, ""]
+                    ws.append(item_row)
+                    
+                    # Optional: Add grey text or italics for items
+                    # row_idx_item = ws.max_row
+                    # ws.cell(row=row_idx_item, column=4).font = Font(italic=True, color="555555")
 
             now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"Report_{self.career_name}_{now}.xlsx"
@@ -472,84 +493,8 @@ class CareerView(ctk.CTkFrame):
             messagebox.showerror("Error", f"Error durante la exportación: {e}")
 
     def on_double_click(self, event):
-        """Handle double-click to edit a cell."""
+        """Handle double-click to open certificate manager."""
         region = self.tree.identify_region(event.x, event.y)
-        if region != "cell":
-            return
+        if region == "cell":
+            self.open_certificate_manager()
 
-        column = self.tree.identify_column(event.x) # e.g. "#1"
-        item = self.tree.identify_row(event.y)
-        
-        # Get column index (1-based because of how displaycolumns/columns work here)
-        try:
-            col_idx = int(column[1:])
-        except (ValueError, IndexError):
-            return
-        
-        # Display Columns: ("Número", "Nombre", "Factura", COL_GESTION, "Fecha", "Entrega", "Notas")
-        # Indices:           1      2         3          4           5        6          7
-        
-        # Non-editable columns: 5 (Fecha/Insercion) and 6 (Entrega)
-        if col_idx in [5, 6]:
-            return
-
-        # Get column name from display columns
-        display_cols = self.tree["displaycolumns"]
-        col_name = display_cols[col_idx - 1]
-
-        # Get the current value
-        current_values = list(self.tree.item(item, 'values'))
-        db_id = current_values[0]
-        
-        # Mapping display column to the index in the full 'values' list
-        # values: [id, numero, nombre, factura, gestion, fecha, entrega, notas]
-        # index:  0   1       2       3        4        5      6        7
-        val_idx = col_idx # conveniently maps 1:1 for most, but let's be careful
-        
-        old_value = current_values[val_idx]
-
-        # Get cell coordinates
-        try:
-            bbox = self.tree.bbox(item, column)
-            if not bbox: return
-            x, y, width, height = bbox
-        except Exception:
-            return
-
-        # Create entry widget with matching theme colors
-        entry = tk.Entry(self.tree, 
-                         font=("Roboto", 11), 
-                         bg="#1e1e1e", 
-                         fg="white", 
-                         insertbackground="white",
-                         relief="flat",
-                         borderwidth=1)
-        entry.insert(0, str(old_value))
-        entry.place(x=x, y=y, width=width, height=height)
-        entry.focus_set()
-        
-        # Select all text
-        entry.after(10, lambda: entry.select_range(0, 'end'))
-
-        def save_edit(event=None):
-            if not entry.winfo_exists():
-                return
-            new_value = entry.get()
-            if str(new_value) != str(old_value):
-                # Update DB
-                self.db.update_certificate_field(db_id, col_name, new_value)
-                # Update Treeview
-                current_values[val_idx] = new_value
-                self.tree.item(item, values=current_values)
-                # If Gestión changed, refresh to update count
-                if col_name == COL_GESTION:
-                    self.refresh_data()
-            entry.destroy()
-
-        def cancel_edit(event=None):
-            if entry.winfo_exists():
-                entry.destroy()
-
-        entry.bind("<Return>", save_edit)
-        entry.bind("<Escape>", cancel_edit)
-        entry.bind("<FocusOut>", lambda e: save_edit())

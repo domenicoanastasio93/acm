@@ -4,6 +4,22 @@ import os
 import sys
 
 class DatabaseManager:
+    def _parse_gestion_items(self, gestion_str):
+        import re
+        if not gestion_str:
+            return []
+        pattern = r'((?:II|I|VER|INV)-\d+)(?:\s*\(?[xX](\d+)\)?)?'
+        matches = re.findall(pattern, gestion_str)
+        items = []
+        if not matches and gestion_str.strip():
+            items.append(gestion_str.strip())
+        else:
+            for code, multiplier in matches:
+                count = int(multiplier) if multiplier else 1
+                for _ in range(count):
+                    items.append(code)
+        return items
+
     def __init__(self):
         # Determine base path for the database
         if getattr(sys, 'frozen', False):
@@ -35,6 +51,8 @@ class DatabaseManager:
     def _init_db(self):
         conn = self._get_connection()
         cursor = conn.cursor()
+        
+        # Main table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS certificados (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,11 +62,24 @@ class DatabaseManager:
                 num_factura TEXT,
                 gestion TEXT,
                 notas TEXT,
-                estado INTEGER DEFAULT 0, -- 0: Pendiente, 1: Entregado
+                estado INTEGER DEFAULT 0, -- 0: Pendiente, 1: Entregado (Legacy/Global status)
                 fecha_registro TEXT,
                 fecha_entrega TEXT
             )
         ''')
+        
+        # Items table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS certification_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                certificado_id INTEGER NOT NULL,
+                item_name TEXT NOT NULL,
+                estado INTEGER DEFAULT 0,
+                fecha_entrega TEXT,
+                FOREIGN KEY (certificado_id) REFERENCES certificados (id) ON DELETE CASCADE
+            )
+        ''')
+
         # Check if numero column exists, if not add it (for migration)
         cursor.execute("PRAGMA table_info(certificados)")
         columns = [col[1] for col in cursor.fetchall()]
@@ -57,6 +88,44 @@ class DatabaseManager:
         if 'notas' not in columns:
             cursor.execute('ALTER TABLE certificados ADD COLUMN notas TEXT')
             
+        # --- MIGRATION: Populate certification_items for existing records ---
+        # Check if we need migration (items table empty but main table has data)
+        cursor.execute("SELECT COUNT(*) FROM certification_items")
+        items_count = cursor.fetchone()[0]
+        
+        if items_count == 0:
+            cursor.execute("SELECT id, gestion, estado, fecha_entrega FROM certificados")
+            existing_certs = cursor.fetchall()
+            if existing_certs:
+                import re
+                pattern = r'((?:II|I|VER|INV)-\d+)(?:\s*\(?[xX](\d+)\)?)?'
+                
+                for cert_id, gestion_str, estado_global, fecha_entrega_global in existing_certs:
+                    if not gestion_str:
+                        continue
+                        
+                    matches = re.findall(pattern, gestion_str)
+                    items_to_create = []
+                    
+                    if not matches and gestion_str.strip():
+                        # No standard pattern match, treat whole string as one item
+                        items_to_create.append(gestion_str.strip())
+                    else:
+                        for code, multiplier in matches:
+                            count = int(multiplier) if multiplier else 1
+                            for _ in range(count):
+                                items_to_create.append(code)
+                    
+                    for item_name in items_to_create:
+                        # Inherit status from parent for migration
+                        status = estado_global
+                        d_date = fecha_entrega_global if status == 1 else None
+                        
+                        cursor.execute('''
+                            INSERT INTO certification_items (certificado_id, item_name, estado, fecha_entrega)
+                            VALUES (?, ?, ?, ?)
+                        ''', (cert_id, item_name, status, d_date))
+
         conn.commit()
         conn.close()
 
@@ -64,10 +133,22 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         fecha_registro = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
         cursor.execute('''
             INSERT INTO certificados (numero, nombre_estudiante, carrera, num_factura, gestion, notas, estado, fecha_registro)
             VALUES (?, ?, ?, ?, ?, ?, 0, ?)
         ''', (numero, nombre, carrera, num_factura, gestion, notas, fecha_registro))
+        
+        cert_id = cursor.lastrowid
+        
+        # Create individual items
+        items = self._parse_gestion_items(gestion)
+        for item_name in items:
+            cursor.execute('''
+                INSERT INTO certification_items (certificado_id, item_name, estado, fecha_entrega)
+                VALUES (?, ?, 0, NULL)
+            ''', (cert_id, item_name))
+            
         conn.commit()
         conn.close()
 
@@ -177,6 +258,10 @@ class DatabaseManager:
             SET estado = 0, fecha_entrega = NULL 
             WHERE id = ?
         ''', (cert_id,))
+        
+        # Reset all items for this certificate
+        cursor.execute('UPDATE certification_items SET estado = 0, fecha_entrega = NULL WHERE certificado_id = ?', (cert_id,))
+        
         conn.commit()
         conn.close()
 
@@ -200,3 +285,118 @@ class DatabaseManager:
             conn.commit()
         
         conn.close()
+
+    # --- New Methods for Items ---
+
+    def get_certificate_items(self, cert_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, item_name, estado, fecha_entrega 
+            FROM certification_items 
+            WHERE certificado_id = ?
+            ORDER BY id ASC
+        ''', (cert_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def mark_item_delivered(self, item_id, fecha_entrega=None):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        if fecha_entrega is None:
+            fecha_entrega = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute('''
+            UPDATE certification_items 
+            SET estado = 1, fecha_entrega = ? 
+            WHERE id = ?
+        ''', (fecha_entrega, item_id))
+        
+        # Update parent status
+        cursor.execute('SELECT certificado_id FROM certification_items WHERE id = ?', (item_id,))
+        cert_id_row = cursor.fetchone()
+        if cert_id_row:
+            cert_id = cert_id_row[0]
+            cursor.execute('SELECT COUNT(*) FROM certification_items WHERE certificado_id = ? AND estado = 0', (cert_id,))
+            remaining = cursor.fetchone()[0]
+            
+            # If 0 remaining, mark parent as delivered (1).
+            if remaining == 0:
+                cursor.execute('UPDATE certificados SET estado = 1, fecha_entrega = ? WHERE id = ?', (fecha_entrega, cert_id))
+                
+        conn.commit()
+        conn.close()
+
+    def undo_item_delivery(self, item_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE certification_items 
+            SET estado = 0, fecha_entrega = NULL 
+            WHERE id = ?
+        ''', (item_id,))
+        
+        # Update parent to Pending if it was delivered
+        cursor.execute('SELECT certificado_id FROM certification_items WHERE id = ?', (item_id,))
+        cert_id_row = cursor.fetchone()
+        if cert_id_row:
+             cursor.execute('UPDATE certificados SET estado = 0 WHERE id = ?', (cert_id_row[0],))
+             
+        conn.commit()
+        conn.close()
+
+    def delete_certificate_item(self, item_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Get parent id first to update its status later if needed
+        cursor.execute('SELECT certificado_id FROM certification_items WHERE id = ?', (item_id,))
+        row = cursor.fetchone()
+        
+        cursor.execute('DELETE FROM certification_items WHERE id = ?', (item_id,))
+        
+        if row:
+            cert_id = row[0]
+            # Check if parent has any items left.
+            cursor.execute('SELECT COUNT(*) FROM certification_items WHERE certificado_id = ? AND estado = 0', (cert_id,))
+            remaining_pending = cursor.fetchone()[0]
+            cursor.execute('SELECT COUNT(*) FROM certification_items WHERE certificado_id = ?', (cert_id,))
+            total_remaining = cursor.fetchone()[0]
+            
+            if total_remaining > 0:
+                new_status = 1 if remaining_pending == 0 else 0
+                cursor.execute('UPDATE certificados SET estado = ? WHERE id = ?', (new_status, cert_id))
+            
+        conn.commit()
+        conn.close()
+
+    def update_item_name(self, item_id, new_name):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE certification_items SET item_name = ? WHERE id = ?', (new_name, item_id))
+        conn.commit()
+        conn.close()
+    def add_certificate_item(self, cert_id, item_name):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO certification_items (certificado_id, item_name, estado, fecha_entrega)
+            VALUES (?, ?, 0, NULL)
+        ''', (cert_id, item_name))
+        
+        # Reset parent status to Pending if it was delivered
+        cursor.execute('UPDATE certificados SET estado = 0 WHERE id = ?', (cert_id,))
+        
+        conn.commit()
+        conn.close()
+
+    def get_certificate_counts(self, cert_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*), SUM(estado) FROM certification_items WHERE certificado_id = ?', (cert_id,))
+        row = cursor.fetchone()
+        conn.close()
+        total = row[0] if row and row[0] is not None else 0
+        delivered = row[1] if row and row[1] is not None else 0
+        return total, delivered
+
