@@ -20,6 +20,32 @@ class DatabaseManager:
                     items.append(code)
         return items
 
+    def _perform_safe_backup(self):
+        import shutil
+        
+        if not os.path.exists(self.db_path):
+            return
+
+        try:
+            # Check integrity before backing up
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA integrity_check")
+            result = cursor.fetchone()
+            conn.close()
+
+            if result and result[0] == "ok":
+                try:
+                    shutil.copy2(self.db_path, self.backup_db_path)
+                    print(f"Backup created successfully at {self.backup_db_path}")
+                except Exception as e:
+                     print(f"Failed to copy backup file: {e}")
+            else:
+                print("Database integrity check failed. Backup skipped to clean version.")
+        except Exception as e:
+            print(f"Failed to perform backup check: {e}")
+
+
     def __init__(self):
         # Determine base path for the database
         if getattr(sys, 'frozen', False):
@@ -31,6 +57,7 @@ class DatabaseManager:
             base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             
         self.db_path = os.path.join(base_path, "acm_data.db")
+        self.backup_db_path = os.path.join(base_path, "acm_data.backup.db")
         
         # If running as EXE and DB doesn't exist in the EXE folder, 
         # try to copy the bundled template if it exists
@@ -42,6 +69,9 @@ class DatabaseManager:
                     shutil.copy2(bundled_db, self.db_path)
                 except Exception:
                     pass
+
+        # Attempt to create a backup if the DB exists and is healthy
+        self._perform_safe_backup()
                     
         self._init_db()
 
