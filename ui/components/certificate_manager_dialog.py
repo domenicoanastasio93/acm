@@ -58,7 +58,7 @@ class CertificateManagerDialog(ctk.CTkToplevel):
         style.configure("Cert.Treeview.Heading", font=("Roboto", header_font_size, "bold"))
         
         columns = ("id", "nombre", "fecha_entrega")
-        self.tree = ttk.Treeview(self.frame, columns=columns, show="headings", selectmode="browse", style="Cert.Treeview")
+        self.tree = ttk.Treeview(self.frame, columns=columns, show="headings", selectmode="extended", style="Cert.Treeview")
         
         self.tree.heading("nombre", text="Certificado")
         self.tree.heading("fecha_entrega", text="Fecha Entrega")
@@ -93,8 +93,10 @@ class CertificateManagerDialog(ctk.CTkToplevel):
         
         # Context menu
         self.menu = tk.Menu(self, tearoff=0)
-        self.menu.add_command(label="Entregar/Anular", command=self.deliver_item)
+        self.menu.add_command(label="Entregar", command=self.deliver_item)
+        self.menu.add_command(label="Anular Entrega", command=self.undo_delivery)
         self.menu.add_command(label="Editar Nombre", command=self.rename_item)
+        self.menu.add_separator()
         self.menu.add_command(label="Eliminar", command=self.delete_item)
         
         self.tree.bind("<Button-2>" if self.tk.call('tk', 'windowingsystem') == 'aqua' else "<Button-3>", self.show_menu)
@@ -121,55 +123,91 @@ class CertificateManagerDialog(ctk.CTkToplevel):
     def on_select(self, event):
         selected = self.tree.selection()
         if selected:
-            tags = self.tree.item(selected[0])['tags']
-            is_delivered = "delivered" in tags
-            
-            if is_delivered:
-                self.btn_deliver.configure(text="Anular Entrega", state="normal", fg_color="#f39c12", hover_color="#d3840e", command=self.undo_delivery)
+            if len(selected) == 1:
+                tags = self.tree.item(selected[0])['tags']
+                is_delivered = "delivered" in tags
+                
+                if is_delivered:
+                    self.btn_deliver.configure(text="Anular Entrega", state="normal", fg_color="#f39c12", hover_color="#d3840e", command=self.undo_delivery)
+                else:
+                    self.btn_deliver.configure(text="Entregar", state="normal", fg_color="#9512f3", hover_color="#7d0fca", command=self.deliver_item)
             else:
-                self.btn_deliver.configure(text="Entregar", state="normal", fg_color="#9512f3", hover_color="#7d0fca", command=self.deliver_item)
+                # Multiple selected
+                self.btn_deliver.configure(text=f"Entregar/Anular ({len(selected)})", state="normal", fg_color="#3498db", hover_color="#2980b9", command=self.bulk_action_menu)
             
             self.btn_delete.configure(state="normal", fg_color="#e74c3c", hover_color="#c0392b")
         else:
             self.btn_deliver.configure(text="Entregar", state="disabled", fg_color="gray")
             self.btn_delete.configure(state="disabled", fg_color="gray")
 
+    def bulk_action_menu(self):
+        # We can show a small menu or just decide based on what user wants.
+        # But the request says: "prevedere la selezione multipla per poter consegnare i certificati selezionati, annullare i certificati o eliminarli"
+        # So I'll add buttons or a menu for this.
+        # Let's just use the context menu logic or similar.
+        selected = self.tree.selection()
+        if not selected: return
+        
+        m = tk.Menu(self, tearoff=0)
+        m.add_command(label=f"Entregar Seleccionados ({len(selected)})", command=self.deliver_item)
+        m.add_command(label=f"Anular Seleccionados ({len(selected)})", command=self.undo_delivery)
+        
+        # Post menu near the button or cursor
+        x = self.btn_deliver.winfo_rootx()
+        y = self.btn_deliver.winfo_rooty()
+        m.post(x, y)
+
     def deliver_item(self):
         selected = self.tree.selection()
         if not selected: return
         
-        vals = self.tree.item(selected[0])['values']
-        item_id = vals[0]
-        item_name = vals[1]
+        # If multiple, maybe just show the first name or "multiple"
+        display_name = ""
+        if len(selected) == 1:
+            vals = self.tree.item(selected[0])['values']
+            display_name = f"{self.student_name} - {vals[1]}"
+        else:
+            display_name = f"{self.student_name} ({len(selected)} Certificados)"
         
         def on_confirm(date):
-            self.db.mark_item_delivered(item_id, date)
+            for item in selected:
+                vals = self.tree.item(item)['values']
+                item_id = vals[0]
+                self.db.mark_item_delivered(item_id, date)
             self.refresh_list()
             
-        DeliveryDialog(self, f"{self.student_name} - {item_name}", self.theme_color, on_confirm)
+        DeliveryDialog(self, display_name, self.theme_color, on_confirm)
 
     def undo_delivery(self):
         selected = self.tree.selection()
         if not selected: return
         
-        vals = self.tree.item(selected[0])['values']
-        item_id = vals[0]
-        item_name = vals[1]
+        msg = "¿Anular entrega de los certificados seleccionados?"
+        if len(selected) == 1:
+            vals = self.tree.item(selected[0])['values']
+            msg = f"¿Anular entrega de {vals[1]}?"
         
-        if messagebox.askyesno("Confirmar", f"¿Anular entrega de {item_name}?"):
-            self.db.undo_item_delivery(item_id)
+        if messagebox.askyesno("Confirmar", msg):
+            for item in selected:
+                vals = self.tree.item(item)['values']
+                item_id = vals[0]
+                self.db.undo_item_delivery(item_id)
             self.refresh_list()
 
     def delete_item(self):
         selected = self.tree.selection()
         if not selected: return
         
-        vals = self.tree.item(selected[0])['values']
-        item_id = vals[0]
-        item_name = vals[1]
+        msg = f"¿Eliminar {len(selected)} certificados seleccionados?"
+        if len(selected) == 1:
+            vals = self.tree.item(selected[0])['values']
+            msg = f"¿Eliminar certificado {vals[1]}?"
         
-        if messagebox.askyesno("Confirmar", f"¿Eliminar certificado {item_name}?"):
-            self.db.delete_certificate_item(item_id)
+        if messagebox.askyesno("Confirmar", msg):
+            for item in selected:
+                vals = self.tree.item(item)['values']
+                item_id = vals[0]
+                self.db.delete_certificate_item(item_id)
             self.refresh_list()
             
     def add_item(self):
@@ -206,7 +244,26 @@ class CertificateManagerDialog(ctk.CTkToplevel):
     def show_menu(self, event):
         item = self.tree.identify_row(event.y)
         if item:
-            self.tree.selection_set(item)
+            selected = self.tree.selection()
+            if item not in selected:
+                self.tree.selection_set(item)
+                selected = (item,)
+            
+            # Update menu labels based on selection count
+            count = len(selected)
+            if count > 1:
+                self.menu.entryconfigure(0, label=f"Entregar Seleccionados ({count})", state="normal")
+                self.menu.entryconfigure(1, label=f"Anular Seleccionados ({count})", state="normal")
+                self.menu.entryconfigure(2, state="disabled") # Cannot rename multiple
+            else:
+                tags = self.tree.item(selected[0])['tags']
+                is_delivered = "delivered" in tags
+                
+                self.menu.entryconfigure(0, label="Entregar", state="disabled" if is_delivered else "normal")
+                self.menu.entryconfigure(1, label="Anular Entrega", state="normal" if is_delivered else "disabled")
+                self.menu.entryconfigure(2, state="normal")
+                self.menu.entryconfigure(4, label="Eliminar")
+                
             self.menu.post(event.x_root, event.y_root)
 
     def on_close(self):
