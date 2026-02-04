@@ -25,6 +25,8 @@ class CareerView(ctk.CTkFrame):
         self.back_callback = back_callback
         self.db = DatabaseManager()
         self.available_gestioni = get_unique_gestioni()
+        self.last_count = 0 # Store count for responsive updates
+        self.bind("<Configure>", self._update_responsive_layout)
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1) # Content area
@@ -38,6 +40,10 @@ class CareerView(ctk.CTkFrame):
 
         self.title_label = ctk.CTkLabel(self.header, text=f"{self.career_name}", font=("Roboto", 24, "bold"), text_color="white")
         self.title_label.pack(side="left", padx=20)
+
+        # --- Total Count Label (Header) ---
+        self.count_label = ctk.CTkLabel(self.header, text="Total Certificados: 0", font=("Roboto", 16, "bold"), text_color="white")
+        self.count_label.pack(side="right", padx=20, pady=12)
 
         # --- Main Content Area ---
         self.content = ctk.CTkFrame(self, fg_color="transparent")
@@ -205,9 +211,7 @@ class CareerView(ctk.CTkFrame):
         self.btn_export = ctk.CTkButton(self.buttons_inner, text="Exportar Excel", width=200, height=40, fg_color="#2196F3", hover_color="#1976D2", font=("Roboto", 13, "bold"), command=self.do_export)
         self.btn_export.grid(row=0, column=3, padx=10)
 
-        # Total Count Label - Placed in column 2 (sticky right)
-        self.count_label = ctk.CTkLabel(self.actions_frame, text="Total Certificados: 0", font=("Roboto", 14, "bold"))
-        self.count_label.grid(row=0, column=2, sticky="e", padx=(10, 20))
+        # Total Count Label - Moved to header
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
         self.tree.bind("<Double-1>", self.on_double_click)
@@ -339,7 +343,20 @@ class CareerView(ctk.CTkFrame):
                     
                 self.tree.insert("", "end", values=formatted_record, tags=tags)
         
-        self.count_label.configure(text=f"Total Certificados: {count}")
+        self.last_count = count
+        self._update_responsive_layout()
+
+    def _update_responsive_layout(self, event=None):
+        """Update count label text based on window width for responsiveness."""
+        width = self.winfo_width()
+        # If width is 1 (initial state), use a default large width logic
+        if width > 1 and width < 950:
+            text = f"Cert.: {self.last_count}"
+        else:
+            text = f"Total Certificados: {self.last_count}"
+        
+        if hasattr(self, 'count_label'):
+            self.count_label.configure(text=text)
 
     def _count_certificates_in_record(self, gestion_str):
         """
