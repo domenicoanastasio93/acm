@@ -3,6 +3,8 @@ from datetime import datetime
 import os
 import sys
 
+GET_CERT_ID_BY_ITEM = 'SELECT certificado_id FROM certification_items WHERE id = ?'
+
 class DatabaseManager:
     def _parse_gestion_items(self, gestion_str):
         import re
@@ -343,7 +345,7 @@ class DatabaseManager:
         ''', (fecha_entrega, item_id))
         
         # Update parent status
-        cursor.execute('SELECT certificado_id FROM certification_items WHERE id = ?', (item_id,))
+        cursor.execute(GET_CERT_ID_BY_ITEM, (item_id,))
         cert_id_row = cursor.fetchone()
         if cert_id_row:
             cert_id = cert_id_row[0]
@@ -367,7 +369,7 @@ class DatabaseManager:
         ''', (item_id,))
         
         # Update parent to Pending if it was delivered
-        cursor.execute('SELECT certificado_id FROM certification_items WHERE id = ?', (item_id,))
+        cursor.execute(GET_CERT_ID_BY_ITEM, (item_id,))
         cert_id_row = cursor.fetchone()
         if cert_id_row:
              cursor.execute('UPDATE certificados SET estado = 0 WHERE id = ?', (cert_id_row[0],))
@@ -380,7 +382,7 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         # Get parent id first to update its status later if needed
-        cursor.execute('SELECT certificado_id FROM certification_items WHERE id = ?', (item_id,))
+        cursor.execute(GET_CERT_ID_BY_ITEM, (item_id,))
         row = cursor.fetchone()
         
         cursor.execute('DELETE FROM certification_items WHERE id = ?', (item_id,))
@@ -397,13 +399,25 @@ class DatabaseManager:
                 new_status = 1 if remaining_pending == 0 else 0
                 cursor.execute('UPDATE certificados SET estado = ? WHERE id = ?', (new_status, cert_id))
             
+            # Update summary string
+            self._update_gestion_summary(cert_id, cursor)
+            
         conn.commit()
         conn.close()
 
     def update_item_name(self, item_id, new_name):
         conn = self._get_connection()
         cursor = conn.cursor()
+        
+        # Get parent id to update summary
+        cursor.execute(GET_CERT_ID_BY_ITEM, (item_id,))
+        row = cursor.fetchone()
+        
         cursor.execute('UPDATE certification_items SET item_name = ? WHERE id = ?', (new_name, item_id))
+        
+        if row:
+            self._update_gestion_summary(row[0], cursor)
+            
         conn.commit()
         conn.close()
     def add_certificate_item(self, cert_id, item_name):
@@ -417,6 +431,9 @@ class DatabaseManager:
         # Reset parent status to Pending if it was delivered
         cursor.execute('UPDATE certificados SET estado = 0 WHERE id = ?', (cert_id,))
         
+        # Update summary string
+        self._update_gestion_summary(cert_id, cursor)
+        
         conn.commit()
         conn.close()
 
@@ -429,4 +446,29 @@ class DatabaseManager:
         total = row[0] if row and row[0] is not None else 0
         delivered = row[1] if row and row[1] is not None else 0
         return total, delivered
+
+    def _update_gestion_summary(self, cert_id, cursor):
+        """Update the management summary string in the main table based on individual items."""
+        cursor.execute("SELECT item_name FROM certification_items WHERE certificado_id = ? ORDER BY id ASC", (cert_id,))
+        items = [r[0] for r in cursor.fetchall()]
+        
+        if not items:
+            cursor.execute("UPDATE certificados SET gestion = '' WHERE id = ?", (cert_id,))
+            return
+
+        # Group items to recreate the (Xn) format
+        from collections import OrderedDict
+        counts = OrderedDict()
+        for item in items:
+            counts[item] = counts.get(item, 0) + 1
+            
+        summary_parts = []
+        for item, qty in counts.items():
+            if qty > 1:
+                summary_parts.append(f"{item} (X{qty})")
+            else:
+                summary_parts.append(item)
+        
+        new_summary = " ".join(summary_parts)
+        cursor.execute("UPDATE certificados SET gestion = ? WHERE id = ?", (new_summary, cert_id))
 

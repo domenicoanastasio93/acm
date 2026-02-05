@@ -3,7 +3,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from database.db_manager import DatabaseManager
 from ui.components.delivery_dialog import DeliveryDialog
+from ui.components.add_certificates_dialog import AddCertificatesDialog
+from utils.excel_util import get_unique_gestioni
 from utils.date_util import DateUtil
+
+TREE_STYLE = "Cert.Treeview"
+UNDO_DELIVERY_TEXT = "Anular Entrega"
 
 class CertificateManagerDialog(ctk.CTkToplevel):
     def __init__(self, master, student_id, student_name, theme_color, on_close_callback=None):
@@ -48,7 +53,7 @@ class CertificateManagerDialog(ctk.CTkToplevel):
         header_font_size = 10
         body_font_size = 10
         
-        style.configure("Cert.Treeview", 
+        style.configure(TREE_STYLE, 
                         background="#2b2b2b", 
                         foreground="white", 
                         fieldbackground="#2b2b2b", 
@@ -58,7 +63,7 @@ class CertificateManagerDialog(ctk.CTkToplevel):
         style.configure("Cert.Treeview.Heading", font=("Roboto", header_font_size, "bold"))
         
         columns = ("id", "nombre", "fecha_entrega")
-        self.tree = ttk.Treeview(self.frame, columns=columns, show="headings", selectmode="extended", style="Cert.Treeview")
+        self.tree = ttk.Treeview(self.frame, columns=columns, show="headings", selectmode="extended", style=TREE_STYLE)
         
         self.tree.heading("nombre", text="Certificado")
         self.tree.heading("fecha_entrega", text="Fecha Entrega")
@@ -94,7 +99,7 @@ class CertificateManagerDialog(ctk.CTkToplevel):
         # Context menu
         self.menu = tk.Menu(self, tearoff=0)
         self.menu.add_command(label="Entregar", command=self.deliver_item)
-        self.menu.add_command(label="Anular Entrega", command=self.undo_delivery)
+        self.menu.add_command(label=UNDO_DELIVERY_TEXT, command=self.undo_delivery)
         self.menu.add_command(label="Editar Nombre", command=self.rename_item)
         self.menu.add_separator()
         self.menu.add_command(label="Eliminar", command=self.delete_item)
@@ -128,7 +133,7 @@ class CertificateManagerDialog(ctk.CTkToplevel):
                 is_delivered = "delivered" in tags
                 
                 if is_delivered:
-                    self.btn_deliver.configure(text="Anular Entrega", state="normal", fg_color="#f39c12", hover_color="#d3840e", command=self.undo_delivery)
+                    self.btn_deliver.configure(text=UNDO_DELIVERY_TEXT, state="normal", fg_color="#f39c12", hover_color="#d3840e", command=self.undo_delivery)
                 else:
                     self.btn_deliver.configure(text="Entregar", state="normal", fg_color="#9512f3", hover_color="#7d0fca", command=self.deliver_item)
             else:
@@ -211,12 +216,14 @@ class CertificateManagerDialog(ctk.CTkToplevel):
             self.refresh_list()
             
     def add_item(self):
-        dialog = ctk.CTkInputDialog(text="Ingrese el nombre del certificado (es. I-24):", title="Nuevo Certificado")
-        # Center dialog relative to this window
-        input_value = dialog.get_input()
-        if input_value and input_value.strip():
-            self.db.add_certificate_item(self.student_id, input_value.strip())
+        available_gestioni = get_unique_gestioni()
+        
+        def on_confirm(selected_items):
+            for item_name in selected_items:
+                self.db.add_certificate_item(self.student_id, item_name)
             self.refresh_list()
+            
+        AddCertificatesDialog(self, available_gestioni, self.theme_color, on_confirm)
 
     def rename_item(self):
         selected = self.tree.selection()
@@ -260,7 +267,7 @@ class CertificateManagerDialog(ctk.CTkToplevel):
                 is_delivered = "delivered" in tags
                 
                 self.menu.entryconfigure(0, label="Entregar", state="disabled" if is_delivered else "normal")
-                self.menu.entryconfigure(1, label="Anular Entrega", state="normal" if is_delivered else "disabled")
+                self.menu.entryconfigure(1, label=UNDO_DELIVERY_TEXT, state="normal" if is_delivered else "disabled")
                 self.menu.entryconfigure(2, state="normal")
                 self.menu.entryconfigure(4, label="Eliminar")
                 

@@ -321,10 +321,11 @@ class CareerView(ctk.CTkFrame):
                 gestion_query in gestion_str.lower() and
                 date_match and delivery_match and status_match):
                 
-                count += self._count_certificates_in_record(r[4])
-                
                 # Get counts for the Gestión status column
                 total_purchased, delivered_count = self.db.get_certificate_counts(r[0])
+                
+                count += total_purchased
+                
                 gestion_summary = f"{delivered_count}/{total_purchased}"
                 
                 # columns = ("db_id", "Número", "Nombre", "Factura", COL_GESTION, "Fecha", "Notas")
