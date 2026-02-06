@@ -1,12 +1,13 @@
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 from database.db_manager import DatabaseManager
 from utils.excel_util import get_unique_gestioni
 from ui.components.multi_select import MultiSelectDropdown
 from ui.components.delivery_dialog import DeliveryDialog
 from ui.components.register_dialog import RegisterDialog
 from ui.components.certificate_manager_dialog import CertificateManagerDialog
+from ui.components.confirm_dialog import ConfirmDialog
 from utils.date_util import DateUtil
 import datetime
 import openpyxl
@@ -239,7 +240,7 @@ class CareerView(ctk.CTkFrame):
             self.db.add_certificate(numero, name, self.career_name, factura, gestion_str, notas)
             self.refresh_data()
         else:
-            messagebox.showwarning("Atención", "El nombre del estudiante es obligatorio.")
+            ConfirmDialog(self, "Atención", "El nombre del estudiante es obligatorio.", self.theme_color, None, show_cancel=False)
 
     def refresh_data(self):
         # We just call filter_list as it already handles clearing, fetching and displaying
@@ -427,18 +428,22 @@ class CareerView(ctk.CTkFrame):
         db_id = item_values[0]
         name = item_values[2]
 
-        if messagebox.askyesno("Confirmar Eliminación", f"¿Está seguro de que desea eliminar a {name} y TODOS sus certificados?\nEsta operación es irreversible."):
-             self.db.delete_certificate(db_id)
-             self.refresh_data()
-             self.btn_certs.configure(state="disabled", fg_color="gray")
-             self.btn_delete.configure(state="disabled", fg_color="gray")
+        msg = f"¿Está seguro de que desea eliminar a {name} y TODOS sus certificados?\nEsta operación es irreversible."
+        
+        def do_delete():
+            self.db.delete_certificate(db_id)
+            self.refresh_data()
+            self.btn_certs.configure(state="disabled", fg_color="gray")
+            self.btn_delete.configure(state="disabled", fg_color="gray")
+
+        ConfirmDialog(self, "Confirmar Eliminación", msg, self.theme_color, do_delete)
 
     def do_export(self):
         try:
             # Get data from treeview
             items = self.tree.get_children()
             if not items:
-                messagebox.showinfo("Información", "No hay datos para exportar.")
+                ConfirmDialog(self, "Información", "No hay datos para exportar.", self.theme_color, None, show_cancel=False)
                 return
 
             wb = openpyxl.Workbook()
@@ -505,10 +510,10 @@ class CareerView(ctk.CTkFrame):
                 save_path = os.path.join(home, filename)
             
             wb.save(save_path)
-            messagebox.showinfo("Éxito", f"Archivo guardado: {save_path}")
+            ConfirmDialog(self, "Éxito", f"Archivo guardado: {save_path}", self.theme_color, None, show_cancel=False)
             
         except Exception as e:
-            messagebox.showerror("Error", f"Error durante la exportación: {e}")
+            ConfirmDialog(self, "Error", f"Error durante la exportación: {e}", "#e74c3c", None, show_cancel=False)
 
     def on_double_click(self, event):
         """Handle double-click to open certificate manager."""

@@ -1,9 +1,10 @@
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 from database.db_manager import DatabaseManager
 from ui.components.delivery_dialog import DeliveryDialog
 from ui.components.add_certificates_dialog import AddCertificatesDialog
+from ui.components.confirm_dialog import ConfirmDialog
 from utils.excel_util import get_unique_gestioni
 from utils.date_util import DateUtil
 
@@ -192,12 +193,14 @@ class CertificateManagerDialog(ctk.CTkToplevel):
             vals = self.tree.item(selected[0])['values']
             msg = f"¿Anular entrega de {vals[1]}?"
         
-        if messagebox.askyesno("Confirmar", msg):
+        def do_undo():
             for item in selected:
                 vals = self.tree.item(item)['values']
                 item_id = vals[0]
                 self.db.undo_item_delivery(item_id)
             self.refresh_list()
+
+        ConfirmDialog(self, "Confirmar Anulación", msg, self.theme_color, do_undo)
 
     def delete_item(self):
         selected = self.tree.selection()
@@ -208,12 +211,14 @@ class CertificateManagerDialog(ctk.CTkToplevel):
             vals = self.tree.item(selected[0])['values']
             msg = f"¿Eliminar certificado {vals[1]}?"
         
-        if messagebox.askyesno("Confirmar", msg):
+        def do_delete():
             for item in selected:
                 vals = self.tree.item(item)['values']
                 item_id = vals[0]
                 self.db.delete_certificate_item(item_id)
             self.refresh_list()
+            
+        ConfirmDialog(self, "Eliminar Certificado", msg, self.theme_color, do_delete)
             
     def add_item(self):
         available_gestioni = get_unique_gestioni()

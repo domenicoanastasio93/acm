@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from utils.date_util import DateUtil
+from ui.components.confirm_dialog import ConfirmDialog
 
 class DeliveryDialog(ctk.CTkToplevel):
     def __init__(self, master, student_name, theme_color, callback):
@@ -60,5 +61,4 @@ class DeliveryDialog(ctk.CTkToplevel):
             self.callback(db_date)
             self.destroy()
         else:
-            from tkinter import messagebox
-            messagebox.showerror("Error", "Formato de fecha no válido. Use DD/MM/AAAA")
+            ConfirmDialog(self, "Error", "Formato de fecha no válido. Use DD/MM/AAAA", "#e74c3c", None, show_cancel=False)

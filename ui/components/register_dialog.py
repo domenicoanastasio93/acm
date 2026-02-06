@@ -1,6 +1,6 @@
 import customtkinter as ctk
-from tkinter import messagebox
 from ui.components.multi_select import MultiSelectDropdown
+from ui.components.confirm_dialog import ConfirmDialog
 
 class RegisterDialog(ctk.CTkToplevel):
     def __init__(self, master, available_gestioni, theme_color, on_confirm):
@@ -83,4 +83,4 @@ class RegisterDialog(ctk.CTkToplevel):
             self.on_confirm(numero, name, factura, gestion_str, notas)
             self.destroy()
         else:
-            messagebox.showwarning("Atención", "El nombre del estudiante è obligatorio.")
+            ConfirmDialog(self, "Atención", "El nombre del estudiante es obligatorio.", self.theme_color, None, show_cancel=False)

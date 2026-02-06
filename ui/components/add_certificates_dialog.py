@@ -1,6 +1,6 @@
 import customtkinter as ctk
-from tkinter import messagebox
 from ui.components.multi_select import MultiSelectDropdown
+from ui.components.confirm_dialog import ConfirmDialog
 
 class AddCertificatesDialog(ctk.CTkToplevel):
     def __init__(self, master, available_gestioni, theme_color, on_confirm):
@@ -54,4 +54,4 @@ class AddCertificatesDialog(ctk.CTkToplevel):
             self.on_confirm(selected_items)
             self.destroy()
         else:
-            messagebox.showwarning("Atención", "Debe seleccionar al menos un certificado.")
+            ConfirmDialog(self, "Atención", "Debe seleccionar al menos un certificado.", self.theme_color, None, show_cancel=False)
